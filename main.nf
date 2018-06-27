@@ -41,22 +41,49 @@ process fetchRemoteData {
 /*
 * Generate genome blocks definitions JSON for pretzel 
 */
-process generateGenomeBlocksJSON {
+process generateGenomeBlocks {
   tag{species+" "+version}
+  publishDir 'results'
 
   input:
     set val(species), val(version), file(idx) from remoteIndices
-  
+
   // output:
-  //   file JSON
+  //    file out
 
-  exec:
-    println(idx.path)
+  // exec:   
+  //   println "NO ISSUES WITH GETTING VALUES"
+  //   println species 
+  //   println "$species" 
+  //   println idx
+  //   println "$idx"
 
-    //idx.readLines().each { println it }
-    // """
-    // head ${idx}
-    // """    
+  //   println idx.text
+  //   println ""
+    // out=file("outfile")
+    // out.text(species)
+
+
+    // println "\n BUT ANY OF THESE WOULD FAIL"
+    // println "println(idx.text)"
+    //  println idx.text
+    // println ""
+  
+  // script:
+  //    """
+  //    #!/usr/bin/env groovy
+     
+  //    println("BUT OBVIOUSLY DOABLE HERE")
+  //    println(new File("$idx").text)
+  //    //def out = new File('out')
+  //    //out.text = new File("$idx").text
+  //    """  
+
+   script: 
+    """
+    awk '\$1 ~/^(chr|[0-9])/' $idx
+    """
+
 }
 
 
