@@ -42,16 +42,27 @@ process fetchRemoteData {
 * Generate genome blocks definitions JSON for pretzel 
 */
 process generateGenomeBlocks {
-  tag{species+" "+version}
-  publishDir 'results'
+  tag{tag}
+  publishDir 'results/genomes'
 
   input:
     set val(species), val(version), file(idx) from remoteIndices
 
-  // output:
-  //    file out
+  output:
+     file "*.json"
 
-  // exec:   
+  script: 
+    tag=species+"_"+version
+    """
+    awk '\$1 ~/^(chr|[0-9])/' $idx \
+    | faidx2json.awk -vname="${tag}" > "${tag}"_genome.json
+    """
+
+
+  //  exec:   
+    //  x = file("tmpfile")
+    //  x.text = species+"\n"+version
+    //  println x.text
   //   println "NO ISSUES WITH GETTING VALUES"
   //   println species 
   //   println "$species" 
@@ -79,10 +90,6 @@ process generateGenomeBlocks {
   //    //out.text = new File("$idx").text
   //    """  
 
-   script: 
-    """
-    awk '\$1 ~/^(chr|[0-9])/' $idx
-    """
 
 }
 
