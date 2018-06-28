@@ -25,7 +25,7 @@ process fetchRemoteData {
 
   output:
     set val(species), val(version), file(idx) into remoteIndices
-    set val(species), val(version), file(pep) into remotePepSeqs
+    set val(species), val(version), file(pep) into remotePepSeqs4Features
     
  
   script:
@@ -34,16 +34,17 @@ process fetchRemoteData {
     pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
     """
     curl $idxurl > idx
-    curl $pepurl | gunzip --stdout | head -n 2 > pep
+    curl $pepurl | gunzip --stdout  > pep
     """
 }
 
 /*
 * Generate genome blocks definitions JSON for pretzel 
 */
-process generateGenomeBlocks {
+process generateGenomeBlocksJSON {
   tag{tag}
-  publishDir 'results/genomes'
+  label 'json'
+  //publishDir "${params.outdir}/JSON"
 
   input:
     set val(species), val(version), file(idx) from remoteIndices
@@ -54,45 +55,39 @@ process generateGenomeBlocks {
   script: 
     tag=species+"_"+version
     """
-    awk '\$1 ~/^(chr|[0-9])/' $idx \
+    awk '\$1 ~/^(chr|[0-9])/' "${idx}" \
     | faidx2json.awk -vname="${tag}" > "${tag}"_genome.json
     """
-
-
-  //  exec:   
-    //  x = file("tmpfile")
-    //  x.text = species+"\n"+version
-    //  println x.text
-  //   println "NO ISSUES WITH GETTING VALUES"
-  //   println species 
-  //   println "$species" 
-  //   println idx
-  //   println "$idx"
-
-  //   println idx.text
-  //   println ""
-    // out=file("outfile")
-    // out.text(species)
-
-
-    // println "\n BUT ANY OF THESE WOULD FAIL"
-    // println "println(idx.text)"
-    //  println idx.text
-    // println ""
-  
-  // script:
-  //    """
-  //    #!/usr/bin/env groovy
-     
-  //    println("BUT OBVIOUSLY DOABLE HERE")
-  //    println(new File("$idx").text)
-  //    //def out = new File('out')
-  //    //out.text = new File("$idx").text
-  //    """  
-
-
 }
 
+/*
+* Generate for pretzel JSON aliases linking features between chromosomes/genomes
+*/
+process generateFeaturesJSON {
+  tag{tag}
+  label 'json'
+
+  input:
+    set val(species), val(version), file(pep) from remotePepSeqs4Features
+  
+   output:
+    file "*.json"
+
+  script:    
+    tag=species+"_"+version
+    """
+    awk '\$1 ~ /^>/' "${pep}"  | sort -k3,3V | pep2featuresJSON.awk -vname="${tag}" > "${tag}"_annotation.json
+    """
+}
+
+// /*
+// * Generate for pretzel JSON aliases linking features between chromosomes/genomes
+// */
+// process generateAliasesJSON {
+//   input:
+//     set val(species), val(version), file(pep) from remotePepSeqs
+
+// }
 
 // process fetchReads {
 
