@@ -88,44 +88,6 @@ process generateFeaturesJSON {
 }
 
 
-
-
-  // remotePepSeqs4Aliases.collect().flatten().collate(6).subscribe {
-  //          println it;}
-
-// /*
-// * Identify best hit for each pep
-// */
-// process pair2 {
-//   input:
-//     //file 'pep*' from remotePepSeqsNoLabs.collect()
-//     set (val(species1), val(version1), file(pep1), val(species2), val(version2), file(pep2)) from remotePepSeqs4Aliases.collect().flatten().collate(6)
-    
-//     """
-//     ls -lth
-//     """
-// }
-
-// tuple = Channel.from( [1, 'alpha'], [2, 'beta'], [3, 'gamma'], [3, 'delta'] )
-
-// process tupleChoose {
-//   input:
-//     set val(num1), val(le)    
-// }
-
-// tuple = Channel.from( [1, 'alpha'], [2, 'beta'], [3, 'delta'] )
-
-// process setExample {
-//     input:
-//     set val(x), file('greek.txt')  from tuple
-
-//     """
-//     echo Processing $x
-//     cat - latin.txt > copy
-//     """
-
-// }
-
 /*
 * Identify best hit for each pep
 */
@@ -175,22 +137,4 @@ process generateAliasesJSON {
     """
 }
 
-// process fetchReads {
-
-//   input: 
-//     val reads1url
-//     val reads2url
-
-//   output:
-//     set val(longtag), val(nametag),file("r1.gz"), file("r2.gz") into FASTQ, hisat2FASTQ, kangaFASTQ
-
-//   script:
-//     nametag = "tmpTAG"
-//     longtag = ["name":"real", "nreads":"10000", "seqerr":"NaN", "rep":"na", "format":"fq"]
-//     """
-//     curl ${reads1url} | gunzip --stdout | head -n 40000 | pigz --fast > r1.gz
-//     curl ${reads2url} | gunzip --stdout | head -n 40000 | pigz --fast > r2.gz
-//     """
-
-// }
 
