@@ -4,7 +4,7 @@
 
 BEGIN {
   print "[";
-  OFS=";    " #used for indent only
+  OFS="    " #used for indent only
   z="";
 }
 {
