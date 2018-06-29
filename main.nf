@@ -22,14 +22,13 @@ process fetchRemoteData {
   input:
     val species from assemblySpeciesList
     val version from assemblyVersionList
-    val urlprefix
-    val pepsuffix
-    val idxsuffix
+    // val urlprefix
+    // val pepsuffix
+    // val idxsuffix
 
   output:
     set val(species), val(version), file(idx) into remoteIndices
-    set val(species), val(version), file(pep) into remotePepSeqs //remotePepSeqs4Features, remotePepSeqs4Aliases1, remotePepSeqs4Aliases2
-    // file 'pep*' into remotePepSeqsNoLabs
+    set val(species), val(version), file(pep) into remotePepSeqs
  
   script:
     tag=species+"_"+version
@@ -37,7 +36,7 @@ process fetchRemoteData {
     pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
     """
     curl $idxurl > idx
-    curl $pepurl | gunzip --stdout | head -20000 > pep #"${tag}.pep"
+    curl $pepurl | gunzip --stdout > pep
     """
 }
 
@@ -117,8 +116,8 @@ process pairProteins {
   label 'MMseqs2'
 
   input:
-    each one from remotePepSeqs4Aliases1.toList()
-    each another from remotePepSeqs4Aliases2.toList()
+    each one from remotePepSeqs4Aliases1 //[species,version,file.pep]
+    each another from remotePepSeqs4Aliases2 //[species,version,file.pep]
   
   output:
     set val(tag1), val(tag2), file("*.tsv") into pairedProteins
@@ -131,9 +130,6 @@ process pairProteins {
     tag2=another[0]+"_"+another[1]
     tag=tag1+"_VS_"+tag2
     """
-     # for f in ${one[2]} ${another[2]}; do
-    #   awk '{if(\$1 ~ /^>/){split(\$4,gene,":"); print ">"gene[2]}else{print}' \${f} > \${f##*/}
-    # done
     mmseqs easy-search ${one[2]} ${another[2]} ${tag}.tsv \${TMPDIR:-/tmp} --greedy-best-hits
     """
 }
@@ -146,7 +142,7 @@ process generateAliasesJSON {
   label 'json'
 
   input:
-    set val(tag1), val(tag2), file(paired) from pairedProteins
+    set(val(tag1), val(tag2), file(paired)) from pairedProteins
 
   output:
     file "*.json"
@@ -160,5 +156,3 @@ process generateAliasesJSON {
     | python -mjson.tool > ${tag}_aliases.json
     """
 }
-
-
