@@ -36,7 +36,7 @@ process fetchRemoteData {
     pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
     """
     curl $idxurl > idx
-    curl $pepurl | gunzip --stdout > pep
+    curl $pepurl | gunzip --stdout | head -20000 > pep
     """
 }
 
@@ -105,9 +105,6 @@ process generateFeaturesJSON {
     """
 }
 
-
-
-
 /*
 * Identify best hit for each pep
 */
@@ -130,7 +127,8 @@ process pairProteins {
     tag2=another[0]+"_"+another[1]
     tag=tag1+"_VS_"+tag2
     """
-    mmseqs easy-search ${one[2]} ${another[2]} ${tag}.tsv \${TMPDIR:-/tmp} --greedy-best-hits
+    mmseqs easy-search ${one[2]} ${another[2]} ${tag}.tsv \${TMPDIR:-/tmp} \
+    --greedy-best-hits --threads ${task.cpus} -v 1 
     """
 }
 
@@ -156,3 +154,4 @@ process generateAliasesJSON {
     | python -mjson.tool > ${tag}_aliases.json
     """
 }
+
