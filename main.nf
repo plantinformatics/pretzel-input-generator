@@ -28,7 +28,7 @@ process fetchRemoteData {
 
   output:
     set val(species), val(version), file(idx) into remoteIndices
-    set val(species), val(version), file("${tag}.pep") into remotePepSeqs4Features, remotePepSeqs4Aliases1, remotePepSeqs4Aliases2
+    set val(species), val(version), file(pep) into remotePepSeqs //remotePepSeqs4Features, remotePepSeqs4Aliases1, remotePepSeqs4Aliases2
     // file 'pep*' into remotePepSeqsNoLabs
  
   script:
@@ -37,7 +37,25 @@ process fetchRemoteData {
     pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
     """
     curl $idxurl > idx
-    curl $pepurl | gunzip --stdout > "${tag}.pep"
+    curl $pepurl | gunzip --stdout | head -10000 > pep #"${tag}.pep"
+    """
+}
+
+/*
+* Only keep "representative" splice form for each gene, typically suffix ".1", some times "-01"
+*/
+process filterForRepresentativePeps {
+  label 'fastx'
+  input:
+    set val(species), val(version), file(pep) from remotePepSeqs
+  
+  output:
+    set val(species), val(version), file("${tag}.pep") into remotePepSeqs4Features, remotePepSeqs4Aliases1, remotePepSeqs4Aliases2
+
+  script:
+  tag=species+"_"+version
+    """
+    cat ${pep} | fasta_formatter > "${tag}.pep"
     """
 }
 
@@ -88,6 +106,8 @@ process generateFeaturesJSON {
 }
 
 
+
+
 /*
 * Identify best hit for each pep
 */
@@ -110,7 +130,10 @@ process pairProteins {
     tag2=another[0]+"_"+another[1]
     tag=tag1+"_VS_"+tag2
     """
-    mmseqs easy-search ${one[2]} ${another[2]} ${tag}.tsv \${TMPDIR} --greedy-best-hits
+     # for f in ${one[2]} ${another[2]}; do
+    #   awk '{if(\$1 ~ /^>/){split(\$4,gene,":"); print ">"gene[2]}else{print}' \${f} > \${f##*/}
+    # done
+    mmseqs easy-search ${tag}.tsv ${one[2]} ${another[2]} \${TMPDIR} --greedy-best-hits
     """
 }
 
