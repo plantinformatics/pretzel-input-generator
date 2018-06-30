@@ -36,7 +36,7 @@ process fetchRemoteData {
     pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
     """
     curl $idxurl > idx
-    curl $pepurl | gunzip --stdout | head -20000 > pep
+    curl $pepurl | gunzip --stdout  > pep
     """
 }
 
@@ -105,6 +105,34 @@ process generateFeaturesJSON {
     """
 }
 
+
+
+// /*
+// * Identify best hit for each pep
+// */
+// process pairProteins {
+//   tag{tag}
+//   label 'MMseqs2'
+
+//   input:
+//     each one from remotePepSeqs4Aliases1 //[species,version,file.pep]
+//     each another from remotePepSeqs4Aliases2 //[species,version,file.pep]
+
+//   output:
+//     set val(tag1), val(tag2), file("*.tsv") into pairedProteins
+
+//   when:
+//     one != another && one[0]+one[1] < another[0]+another[1] //DON'T COMPARE WITH ITSELF, DO ONE-WAY ONLY BASED ON LEX ORDER
+
+//   script:
+//     tag1=one[0]+"_"+one[1]
+//     tag2=another[0]+"_"+another[1]
+//     tag=tag1+"_VS_"+tag2
+//     """
+//     mmseqs easy-search ${one[2]} ${another[2]} ${tag}.tsv \${TMPDIR:-/tmp} \
+//     --greedy-best-hits --threads ${task.cpus} -v 1 
+//     """
+// }
 /*
 * Identify best hit for each pep
 */
@@ -113,24 +141,25 @@ process pairProteins {
   label 'MMseqs2'
 
   input:
-    each one from remotePepSeqs4Aliases1 //[species,version,file.pep]
-    each another from remotePepSeqs4Aliases2 //[species,version,file.pep]
-  
-  output:
-    set val(tag1), val(tag2), file("*.tsv") into pairedProteins
+    set val(speciesA), val(versionA), file(pepA), val(speciesB), val(versionB), file(pepB) from remotePepSeqs4Aliases1.combine(remotePepSeqs4Aliases2).filter { it[0] != it [3]  && it[0]+it[1] < it[3]+it[4]}  //[species,version,file.pep]
 
-  when:
-    one != another && one[0]+one[1] < another[0]+another[1] //DON'T COMPARE WITH ITSELF, DO ONE-WAY ONLY BASED ON LEX ORDER
+  output:
+    set val(tagA), val(tagB), file("*.tsv") into pairedProteins
+
+  //  when:
+  //   species1 != species2 && species1+version1 < species2+version2 //DON'T COMPARE WITH ITSELF, DO ONE-WAY ONLY BASED ON LEX ORDER
 
   script:
-    tag1=one[0]+"_"+one[1]
-    tag2=another[0]+"_"+another[1]
-    tag=tag1+"_VS_"+tag2
+    tagA=speciesA+"_"+versionA
+    tagB=speciesB+"_"+versionB
+    tag=tagA+"_VS_"+tagB
     """
-    mmseqs easy-search ${one[2]} ${another[2]} ${tag}.tsv \${TMPDIR:-/tmp} \
+    mmseqs easy-search ${pepA} ${pepB} ${tag}.tsv \${TMPDIR:-/tmp} \
     --greedy-best-hits --threads ${task.cpus} -v 1 
     """
 }
+
+//  remotePepSeqs4Aliases1.combine(remotePepSeqs4Aliases2).filter { it[0] != it [3]  && it[0]+it[1] < it[3]+it[4]} .subscribe { println  "NOPE: $it" }
 
 /*
 * Generate JSON aliases linking features between chromosomes/genomes
