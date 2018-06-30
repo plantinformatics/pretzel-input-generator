@@ -21,13 +21,13 @@ The pipeline requires
 
 ## Dependencies
 
-* [nextflow](nextflow.io) 
+* [nextflow](https://www.nextflow.io) 
 * Either of:
   * Singularity
   * Docker
-  * Required software installed (e.g. as module, in which case specify its name in [`conf/modules.conf`](conf/modules.conf)) 
+  * Required software installed (e.g. as module, in which case specify its name in [`conf/modules.conf`](conf/modules.config)) 
 
-When using Singularity or Docker, the required containers are specified in [`conf/containers.conf`](conf/containers.conf)
+When using Singularity or Docker, the required containers are specified in [`conf/containers.conf`](conf/containers.config)
  
 <!-- [MMSeqs2](https://github.com/soedinglab/mmseqs2) -->
 
