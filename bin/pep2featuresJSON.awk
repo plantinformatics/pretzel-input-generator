@@ -10,7 +10,7 @@ BEGIN {
   print "  \"blocks\": [";
 }
 {
-  if($1 ~ /^>/ && $3 ~/^chromosome/) {
+  if($1 ~ /^>/ && $3 ~/^chromosome/) { #>AT3G05780.1 pep chromosome:TAIR10:3:1714941:1719608:-1 gene:AT3G05780
     split($3,location,":");
     split($4,gene,":");
     if(location[3] == currentChromosome) { #ANOTHER GENE IN BLOCK/CHR
@@ -44,4 +44,3 @@ END {
   print "  ]";
   print "}";
 }
-#>AT3G05780.1 pep chromosome:TAIR10:3:1714941:1719608:-1 gene:AT3G05780
