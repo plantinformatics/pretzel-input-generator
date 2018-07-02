@@ -13,6 +13,18 @@ urlprefix = params.urlprefix
 pepsuffix = params.pepsuffix
 idxsuffix = params.idxsuffix
 
+//LOCAL Zavitan for now...
+Channel.from(params.localAssemblySpecies.tokenize(","))
+.merge(Channel.from(params.localAssemblyVersion.tokenize(",")))
+.into { localIds1; localIds2 }
+
+localIds1.merge(Channel.fromPath(params.localGtf)).merge(Channel.fromPath(params.localPep)).set{ localInputGtfPep }
+localIds2.merge(Channel.fromPath(params.localIdx)).set { localIndices } 
+
+
+
+
+
 /*
 * Download peptide seqs and assembly index files from Ensembl plants
 */
@@ -36,7 +48,7 @@ process fetchRemoteData {
     pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
     """
     curl $idxurl > idx
-    curl $pepurl | gunzip --stdout  > pep
+    curl $pepurl | gunzip --stdout | head -20000 > pep
     """
 }
 
@@ -69,7 +81,7 @@ process generateGenomeBlocksJSON {
   //publishDir "${params.outdir}/JSON"
 
   input:
-    set val(species), val(version), file(idx) from remoteIndices
+    set val(species), val(version), file(idx) from remoteIndices.mix(localIndices)
 
   output:
      file "*.json"
@@ -83,6 +95,53 @@ process generateGenomeBlocksJSON {
     """
 }
 
+
+// process fetchRemoteData2 {
+//   tag{tag}
+  
+//   input:
+//     val species from assemblySpeciesList
+//     val version from assemblyVersionList
+//     val urlRepr
+//     val urlGTF
+//     val urlIdx
+
+//   output:
+//     set val(species), val(version), file(idx) into remoteIndices2
+//     set val(species), val(version), file(gtf), file(pep) into remotePepSeqs2
+ 
+//   script:
+//     tag=species+"_"+version
+//     """
+//     curl $urlIdx > idx
+//     curl $urlRepr | head -20000 > pep
+//     curl $urlGTF | head -2000 > gtf
+//     """
+// }
+
+
+
+/*
+* Given a FASTA with representative peps and the corresponding GTF
+* output FASTA with representative peps and definition lines 
+* mimicking the ensembl format for such data 
+*/
+process convertGtfAndReprFa2EnsemblPep {
+  tag{tag}
+  label 'fastx'
+
+  input:
+    set val(species), val(version), file(gtf), file(reprPep) from localInputGtfPep
+
+  output:
+    set val(species), val(version), file(pep) into localPepSeqs4Features  
+  script:    
+    tag=species+"_"+version
+    """
+    fasta_formatter < ${reprPep} | gtfAndRepr2ensembl_pep.awk -vversion="${version}" -vFS="\\t" - ${gtf} > pep
+    """
+}
+
 /*
 * Generate for pretzel JSON aliases linking features between chromosomes/genomes
 * Fails if JSON invalid
@@ -92,7 +151,8 @@ process generateFeaturesJSON {
   label 'json'
 
   input:
-    set val(species), val(version), file(pep) from remotePepSeqs4Features
+    set val(species), val(version), file(pep) from remotePepSeqs4Features.mix(localPepSeqs4Features) 
+    //WARNINIG! HC OUTPUT CURRENTLY OVERWRITEN BY LC OUTPUT (ORE VICE-VERSA)
   
   output:
     file "*.json"
