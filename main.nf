@@ -1,5 +1,5 @@
 #!/usr/bin/env nextflow
-//echo true
+// echo true
 
 //INPUT PARAMS
 eprelease = params.eprelease
@@ -21,14 +21,77 @@ idxsuffix = params.idxsuffix
 // localIds1.merge(Channel.fromPath(params.localGtf)).merge(Channel.fromPath(params.localPep)).set{ localInputGtfPep }
 // localIds2.merge(Channel.fromPath(params.localIdx)).set { localIndices } 
 
+//ARRANGE INPUTS FOR PROCESSES
+localInputGtfPep = Channel.create()
+localIndices = Channel.create()
+params.localAssembly.each {
+  //EXPECT TO HAVE SOME DATASETS WITH gff3 instead
+  if(it.containsKey("gtf")) {
+    localInputGtfPep << [it,file(it.gtf),file(it.pep)]
+  }
+  //ALL SHOULD HAVE AN INDEX
+  if(it.containsKey("idx")) { 
+    localIndices << [it,file(it.idx)]
+  }
+}
+localInputGtfPep.close()
+localIndices.close()
 
+// localInputGtfPep.subscribe {
+//    println ("HERE: $it")
+// }
+
+/*
+* Generate genome blocks definitions JSON for pretzel 
+* Fails if JSON invalid
+*/
+process generateGenomeBlocksJSON {
+  tag{tag}
+  label 'json'
+
+  input:
+    set val(map), file(idx) from localIndices//.mix(remoteIndices)
+
+  output:
+     file "*.json"
+
+  script: 
+    tag=map.species+"_"+map.version
+    """
+    awk '\$1 ~/^(chr|[0-9])/' "${idx}" \
+    | faidx2json.awk -vname="${tag}" \
+    | python -mjson.tool > "${tag}"_genome.json
+    """
+}
+
+/*
+* Given a FASTA with representative peps and the corresponding GTF
+* output FASTA with representative peps and definition lines 
+* mimicking the ensembl plants (EP) format for such data - this can then 
+* be piped into the same processes which we use for chewing through EP data
+*/
+process convertReprFasta2EnsemblPep {
+  tag{tag}
+  label 'fastx'
+
+  input:
+    set (val(map), file(gtf), file(reprPep)) from localInputGtfPep
+
+  output:
+    set val(map), file(pep) into localPepSeqs4Features, localPepSeqs4Aliases  
+  script:    
+    tag=map.species+"_"+map.version
+    """
+    fasta_formatter < ${reprPep} | gtfAndRepr2ensembl_pep.awk -vversion="${map.version}" -vFS="\\t" - ${gtf} > pep
+    """
+}
 
 
 
 /*
 * Download peptide seqs and assembly index files from Ensembl plants
 */
-process fetchRemoteData {
+process fetchRemoteDataFromEnsemblPlants {
   tag{map}
   
   input:
@@ -52,6 +115,8 @@ process fetchRemoteData {
     """
 }
 
+
+
 /*
 * Only keep "representative" splice form for each gene, typically suffix ".1", some times "-01"
 */
@@ -72,89 +137,17 @@ process filterForRepresentativePeps {
     """
 }
 
-/*
-* Generate genome blocks definitions JSON for pretzel 
-* Fails if JSON invalid
-*/
-process generateGenomeBlocksJSON {
-  tag{map}
-  label 'json'
-  //publishDir "${params.outdir}/JSON"
-
-  input:
-    set val(map), file(idx) from remoteIndices//.mix(localIndices)
-
-  output:
-     file "*.json"
-
-  script: 
-    tag=map.species+"_"+map.version
-    """
-    awk '\$1 ~/^(chr|[0-9])/' "${idx}" \
-    | faidx2json.awk -vname="${tag}" \
-    | python -mjson.tool > "${tag}"_genome.json
-    """
-}
-
-
-// /*
-// * Given a FASTA with representative peps and the corresponding GTF
-// * output FASTA with representative peps and definition lines 
-// * mimicking the ensembl format for such data 
-// */
-// process convertGtfAndReprFa2EnsemblPep {
-//   tag{tag}
-//   label 'fastx'
-
-//   input:
-//     set val(species), val(version), file(gtf), file(reprPep) from localInputGtfPep
-
-//   output:
-//     set val(species), val(version), file(pep) into localPepSeqs4Features, localPepSeqs4Aliases  
-//   script:    
-//     tag=species+"_"+version
-//     """
-//     fasta_formatter < ${reprPep} | gtfAndRepr2ensembl_pep.awk -vversion="${version}" -vFS="\\t" - ${gtf} > pep
-//     """
-// }
-
-// subgenomes = params.localSubGenomes.tokenize(",")
-// process splitPepSeqsPerSubGenome {
-//   tag{tag}
-
-//   input:
-//     set val(species), val(version), file(pep) from localPepSeqs4Aliases
-//     each subgenome from subgenomes
-//   output:
-//     set val(species), val(version), file(subpep) into localPepSeqs4AliasesSubgenomes
-    
-//   script:
-//   if(subgenomes.size() > 1)  {
-//     tag=species+"_"+version+"_subgenome:"+subgenome
-//     version+="_"+subgenome
-//     """
-//     awk '{if(\$1 ~ /^>/) {split(\$3,arr,":");if(arr[3] ~ /${subgenome}\$/){current=1; print}else{current=0}}else if(current){print};}' pep > subpep
-//     """
-//   } else {
-//     tag=species+"_"+version
-//     """
-//     cp --no-dereference pep subpep
-//     """
-//   }
-//     //>TRIDC1AG000070.2 pep chromosome:WEWseq_PGSB_20160501:chr1A:409955:411146 gene:TRIDC1AG000070
-
-// }
 
 /*
 * Generate for pretzel JSON aliases linking features between chromosomes/genomes
 * Fails if JSON invalid
 */
 process generateFeaturesJSON {
-  tag{map}
+  tag{tag}
   label 'json'
 
   input:
-    set val(map), file(pep) from remotePepSeqs4Features //.mix(localPepSeqs4Features) 
+    set val(map), file(pep) from localPepSeqs4Features.mix(remotePepSeqs4Features)
     //WARNINIG! HC OUTPUT CURRENTLY OVERWRITEN BY LC OUTPUT (ORE VICE-VERSA)
   
   output:
@@ -162,15 +155,46 @@ process generateFeaturesJSON {
 
   script:    
     tag=map.species+"_"+map.version
+    // base=map.subGenomes.size() < 2 ? tag : tag+"_"+subgenome
     """
     awk '\$1 ~ /^>/' "${pep}"  | sort -k3,3V | pep2featuresJSON.awk -vname="${tag}" \
     | python -mjson.tool > "${tag}"_annotation.json
     """
 }
 
+// // subgenomes = params.localSubGenomes.tokenize(",")
+// // process splitPepSeqsPerSubGenome {
+// //   tag{tag}
+
+// //   input:
+// //     set val(species), val(version), file(pep) from localPepSeqs4Aliases
+// //     each subgenome from subgenomes
+// //   output:
+// //     set val(species), val(version), file(subpep) into localPepSeqs4AliasesSubgenomes
+    
+// //   script:
+// //   if(subgenomes.size() > 1)  {
+// //     tag=species+"_"+version+"_subgenome:"+subgenome
+// //     version+="_"+subgenome
+// //     """
+// //     awk '{if(\$1 ~ /^>/) {split(\$3,arr,":");if(arr[3] ~ /${subgenome}\$/){current=1; print}else{current=0}}else if(current){print};}' pep > subpep
+// //     """
+// //   } else {
+// //     tag=species+"_"+version
+// //     """
+// //     cp --no-dereference pep subpep
+// //     """
+// //   }
+// //     //>TRIDC1AG000070.2 pep chromosome:WEWseq_PGSB_20160501:chr1A:409955:411146 gene:TRIDC1AG000070
+
+// // }
 
 
-remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.combine(remotePepSeqs4Aliases2).filter { it[0].species+it[0].version < it[2].species+it[2].version  }  //[species,version,file.pep]
+
+
+//COMBINE AND FILTER DUPLICATED CHANNEL TO ALLOW ALL VS ALL DATASETS COMPARISONS
+remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.combine(remotePepSeqs4Aliases2)
+  .filter { it[0].species+it[0].version < it[2].species+it[2].version  }  //[species,version,file.pep]
 // remotePepSeqs4AliasesCombined.println()
 // [
   // [species:Arabidopsis_thaliana, version:TAIR10], 
@@ -182,7 +206,7 @@ remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.combine(remotePepSeqs4Ali
 * Identify best hit for each pep
 */
 process pairProteins {
-  tag{tag}
+  tag{labtag}
   label 'MMseqs2'
 
   input:
@@ -190,20 +214,19 @@ process pairProteins {
 
   output:
      set val(tagA), val(tagB), file("*.tsv") into pairedProteins
-
   
   script:
-    println mapA    
     tagA=mapA.species+"_"+mapA.version 
     tagB=mapB.species+"_"+mapB.version 
     tag=tagA+"_VS_"+tagB
+    labtag=mapA.toString()+" VS "+mapB.toString()
     """
-    mmseqs easy-search ${pepA} ${pepB} ${tag}.tsv \${TMPDIR:-/tmp} \
+    mmseqs easy-search ${pepA} ${pepB} ${tag}.tsv \${TMPDIR:-/tmp}/${tag} \
     --greedy-best-hits --threads ${task.cpus} -v 1 
     """
 }
 
-//  remotePepSeqs4Aliases1.combine(remotePepSeqs4Aliases2).filter { it[0] != it [3]  && it[0]+it[1] < it[3]+it[4]} .subscribe { println  "NOPE: $it" }
+// //  remotePepSeqs4Aliases1.combine(remotePepSeqs4Aliases2).filter { it[0] != it [3]  && it[0]+it[1] < it[3]+it[4]} .subscribe { println  "NOPE: $it" }
 
 /*
 * Generate JSON aliases linking features between chromosomes/genomes
