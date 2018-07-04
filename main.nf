@@ -213,6 +213,23 @@ localPepSeqs4Aliases.subscribe onNext: {
   }
 }, onComplete: { localPepSeqs4Aliases.close(); localPepSeqs4AliasesRep.close() }
 
+// Y = Channel.create()
+// X = Channel.from([1,null],[2,["A","B"]],[3,["A","B","C"]]).map { it -> it }
+//     .subscribe { println it };
+// X.subscribe onNext: { 
+//   println "BEFORE: "+it 
+//     if(it[1]==null) {
+//       Y << it
+//     } else {
+//       for(i in it[1]) {
+//         clone = it.clone()
+//         clone[1]=i
+//         Y << clone
+//       }
+//     }
+// }, onComplete: { X.close(); Y.close() }
+// Y.subscribe { println "AFTER: "+ it}
+
 
 process splitPepSeqsPerSubGenome {
   tag{tag}
@@ -222,7 +239,7 @@ process splitPepSeqsPerSubGenome {
     set val(map), file(pep) from localPepSeqs4AliasesRep
     
   output:
-    set val(map), file('*pep') into localPepSeqs4AliasesRepSplit
+    set val(map), file('*pep') into localPepSeqs4AliasesRepSplit1, localPepSeqs4AliasesRepSplit2, temp3
   //   // set val(map), file(pep) optional true into localPepSeqs4AliasesNoSubgenomes
 
   script:    
@@ -253,12 +270,17 @@ process splitPepSeqsPerSubGenome {
 }
 
 
-
-
+getUniqId = { it.species+it.version+(it.containsKey("subgenome") ? "_"+it.subgenome : "")  }
 //COMBINE AND FILTER DUPLICATED CHANNEL TO ALLOW ALL VS ALL DATASETS COMPARISONS
-remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.combine(remotePepSeqs4Aliases2)
-  .filter { it[0].species+it[0].version < it[2].species+it[2].version  }  //[species,version,file.pep]
-// remotePepSeqs4AliasesCombined.println()
+remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.mix(localPepSeqs4AliasesRepSplit1).combine(remotePepSeqs4Aliases2.mix(localPepSeqs4AliasesRepSplit2))
+  .filter { getUniqId(it[0]) < getUniqId(it[2])  }  //[species,version,file.pep]
+
+  // remotePepSeqs4AliasesCombined.subscribe {println (getUniqId(it[0])+" "+getUniqId(it[2])) }
+
+
+// temp3.collect().subscribe{ println it.combinations().each { a, b -> a[0].species < b[0].species} }
+
+
 // [
   // [species:Arabidopsis_thaliana, version:TAIR10],
   // /home/rad/repos/pretzel-input-generator/work/59/e1b177dcc513678af115b00116e9b6/Arabidopsis_thaliana_TAIR10.pep,
@@ -269,20 +291,24 @@ remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.combine(remotePepSeqs4Ali
 * Identify best hit for each pep
 */
 process pairProteins {
-  tag{labtag}
+  tag{tag}
   label 'MMseqs2'
-
+  errorStrategy 'ignore'
+  
   input:
     set val(mapA), file(pepA), val(mapB), file(pepB) from remotePepSeqs4AliasesCombined
 
   output:
      set val(tagA), val(tagB), file("*.tsv") into pairedProteins
 
+  // when:
+  //   !pepA.isEmpty() && !pepB.isEmpty()
+
   script:
-    tagA=mapA.species+"_"+mapA.version
-    tagB=mapB.species+"_"+mapB.version
+    tagA=mapA.species+"_"+mapA.version+(mapA.containsKey("subgenome") ? "_"+mapA.subgenome : "")
+    tagB=mapB.species+"_"+mapB.version+(mapB.containsKey("subgenome") ? "_"+mapB.subgenome : "")
     tag=tagA+"_VS_"+tagB
-    labtag=mapA.toString()+" VS "+mapB.toString()
+    // labtag=mapA.toString()+" VS "+mapB.toString()
     """
     mmseqs easy-search ${pepA} ${pepB} ${tag}.tsv \${TMPDIR:-/tmp}/${tag} \
     --greedy-best-hits --threads ${task.cpus} -v 1
