@@ -204,10 +204,12 @@ localPepSeqs4Aliases.subscribe onNext: {
   // println it[0]
   if(it[0].containsKey("subgenomes")) {
     for(subgenome in it[0].subgenomes) {
-      localPepSeqs4AliasesRep << [it[0],it[1],subgenome]
+      clone = it[0].clone()
+      clone.subgenome = subgenome
+      localPepSeqs4AliasesRep << [clone,it[1]]
     }
   } else {
-    localPepSeqs4AliasesRep << [it[0],it[1],""]
+    localPepSeqs4AliasesRep << it
   }
 }, onComplete: { localPepSeqs4Aliases.close(); localPepSeqs4AliasesRep.close() }
 
@@ -217,21 +219,20 @@ process splitPepSeqsPerSubGenome {
   echo true
 
   input:
-    set val(map), file(pep), val(subgenome) from localPepSeqs4AliasesRep
+    set val(map), file(pep) from localPepSeqs4AliasesRep
     
   output:
     set val(map), file('*pep') into localPepSeqs4AliasesRepSplit
   //   // set val(map), file(pep) optional true into localPepSeqs4AliasesNoSubgenomes
 
-  script:
-    tag=map.species+"_"+map.version+(subgenome==null ? "" : "_"+subgenome)
-  
-    if(map.subgenomes != null && map.subgenomes.size() > 1)  {
+  script:    
+    tag=map.species+"_"+map.version+(map.containsKey("subgenome") ? "_"+map.subgenome : "")
+    if(map.containsKey("subgenome") && map.subgenomes.size() > 1)  {
        """
        awk '{
         if(\$1 ~ /^>/) {
           split(\$3,arr,":");
-          if(arr[3] ~ /${subgenome}\$/) {
+          if(arr[3] ~ /${map.subgenome}\$/) {
             current=1; print
           } else {
             current=0
@@ -239,7 +240,11 @@ process splitPepSeqsPerSubGenome {
         } else if(current) {
           print
         }
-      ;}' pep > ${subgenome}.pep
+      ;}' pep > ${map.subgenome}.pep
+      """
+    } else {
+      """
+      cp --preserve=links pep outpep
       """
     }
   
