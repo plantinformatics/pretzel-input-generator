@@ -11,12 +11,12 @@ The pipeline pulls data from [Ensembl plants](https://plants.ensembl.org/index.h
 * genome assembly index file 
 * matching protein sequences 
 
-### Local - under development
+### Local
 
 The pipeline requires 
 
 * a genome assembly index file
-* gene annotations
+* gene annotations (currently GTF but will also accept GFF3)
 * matching protein sequences
 
 ## Dependencies
@@ -31,7 +31,6 @@ When using Singularity or Docker, the required containers are specified in [`con
  
 <!-- [MMSeqs2](https://github.com/soedinglab/mmseqs2) -->
 
-  * ...?
 
 ## Execution
 
@@ -40,23 +39,23 @@ We provide several execution profiles
 Run locally with docker
 
 ```
-nextflow run main.nf -resume -profile docker
+nextflow run rsuchecki/pretzel-input-generator -resume -profile docker
 ```
 
 Run locally with singularity
 
 ```
-nextflow run main.nf -resume -profile singularity
+nextflow run rsuchecki/pretzel-input-generator -resume -profile singularity
 ```
 
 Dispatch on a SLURM cluster with singularity
 
 ```
-nextflow run main.nf -resume -profile slurm,singularity,singularitymodule
+nextflow run rsuchecki/pretzel-input-generator -resume -profile slurm,singularity,singularitymodule
 ```
 
 Dispatch on a SLURM cluster with modules
 
 ```
-nextflow run main.nf -resume -profile slurm,modules
+nextflow run rsuchecki/pretzel-input-generator -resume -profile slurm,modules
 ```
