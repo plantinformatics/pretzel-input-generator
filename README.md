@@ -4,6 +4,8 @@ This is a [nextflow](https://www.nextflow.io) pipeline for generating input for 
 
 ## Input
 
+
+
 ### Remote
 
 The pipeline pulls data from [Ensembl plants](https://plants.ensembl.org/index.html), included species and assembly versions are specified in [input.config](input.config). 

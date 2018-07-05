@@ -82,34 +82,11 @@ localIndices.close()
 
 
 /*
-* Given a FASTA with representative peps and the corresponding GTF
-* output FASTA with representative peps and definition lines
-* mimicking the ensembl plants (EP) format for such data - this can then
-* be piped into the same processes which we use for chewing through EP data
-*/
-process convertReprFasta2EnsemblPep {
-  tag{tag}
-  label 'fastx'
-
-  input:
-    set (val(map), file(gtf), file(reprPep)) from localInputGtfPep
-
-  output:
-    set val(map), file(pep) into localPepSeqs4Features, localPepSeqs4Aliases
-  script:
-    tag=map.species+"_"+map.version
-    """
-    fasta_formatter < ${reprPep} | gtfAndRepr2ensembl_pep.awk -vversion="${map.version}" -vFS="\\t" - ${gtf} > pep
-    """
-}
-
-
-
-/*
 * Download peptide seqs and assembly index files from Ensembl plants
 */
 process fetchRemoteDataFromEnsemblPlants {
   tag{map}
+  label 'download'
 
   input:
     val species from assemblySpeciesList
@@ -137,6 +114,29 @@ process fetchRemoteDataFromEnsemblPlants {
       curl $pepurl | gunzip --stdout | head -n ${trialLines} > pep
       """
     }
+}
+
+
+/*
+* Given a FASTA with representative peps and the corresponding GTF
+* output FASTA with representative peps and definition lines
+* mimicking the ensembl plants (EP) format for such data - this can then
+* be piped into the same processes which we use for chewing through EP data
+*/
+process convertReprFasta2EnsemblPep {
+  tag{tag}
+  label 'fastx'
+
+  input:
+    set (val(map), file(gtf), file(reprPep)) from localInputGtfPep
+
+  output:
+    set val(map), file(pep) into localPepSeqs4Features, localPepSeqs4Aliases
+  script:
+    tag=map.species+"_"+map.version
+    """
+    fasta_formatter < ${reprPep} | gtfAndRepr2ensembl_pep.awk -vversion="${map.version}" -vFS="\\t" - ${gtf} > pep
+    """
 }
 
 /*
@@ -273,7 +273,7 @@ process splitPepSeqsPerSubGenome {
     set val(map), file(pep) from localPepSeqs4AliasesRep
     
   output:
-    set val(map), file("${tag}.pep") into localPepSeqs4AliasesRepSplit1, localPepSeqs4AliasesRepSplit2, temp3
+    set val(map), file("${tag}.pep") into localPepSeqs4AliasesRepSplit1, localPepSeqs4AliasesRepSplit2
   //   // set val(map), file(pep) optional true into localPepSeqs4AliasesNoSubgenomes
 
   script:    
@@ -312,7 +312,7 @@ remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.mix(localPepSeqs4AliasesR
   // remotePepSeqs4AliasesCombined.subscribe {println (getUniqId(it[0])+" "+getUniqId(it[2])) }
 
 
-// temp3.collect().subscribe{ println it.combinations().each { a, b -> a[0].species < b[0].species} }
+// .collect().subscribe{ println it.combinations().each { a, b -> a[0].species < b[0].species} }
 
 
 // [
