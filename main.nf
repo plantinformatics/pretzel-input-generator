@@ -339,9 +339,9 @@ process pairProteins {
   //   !pepA.isEmpty() && !pepB.isEmpty()
 
   script:
-    tagA=mapA.species+"_"+mapA.version+(mapA.containsKey("subgenome") ? "_"+mapA.subgenome : "")
-    tagB=mapB.species+"_"+mapB.version+(mapB.containsKey("subgenome") ? "_"+mapB.subgenome : "")
-    tag=tagA+"_VS_"+tagB
+    tagA=mapA.species+"_"+mapA.version //no subgenome spec to be pass to next process as used directly in JSON
+    tagB=mapB.species+"_"+mapB.version     
+    tag=tagA+(mapA.containsKey("subgenome") ? "_"+mapA.subgenome : "")+"_VS_"+tagB+(mapB.containsKey("subgenome") ? "_"+mapB.subgenome : "")
     // labtag=mapA.toString()+" VS "+mapB.toString()
     """
     mmseqs easy-search ${pepA} ${pepB} ${tag}.tsv \${TMPDIR:-/tmp}/${tag} \
