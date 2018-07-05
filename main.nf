@@ -2,6 +2,7 @@
 // echo true
 
 //INPUT PARAMS
+trialLines = params.trialLines
 eprelease = params.eprelease
 
 //LIST ELEMS ASSUMED TO MATCH
@@ -36,6 +37,8 @@ params.localAssembly.each {
 }
 localInputGtfPep.close()
 localIndices.close()
+
+
 
 
 // localInput = Channel.from(params.localAssembly)
@@ -123,10 +126,17 @@ process fetchRemoteDataFromEnsemblPlants {
     map=["species":species, "version":version]
     idxurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/dna_index/"+species+"."+version+idxsuffix
     pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
-    """
-    curl $idxurl > idx
-    curl $pepurl | gunzip --stdout  > pep
-    """
+    if(trialLines == null) {
+      """
+      curl $idxurl > idx
+      curl $pepurl | gunzip --stdout > pep
+      """
+    } else {
+      """
+      curl $idxurl > idx
+      curl $pepurl | gunzip --stdout | head -n ${trialLines} > pep
+      """
+    }
 }
 
 /*
@@ -263,7 +273,7 @@ process splitPepSeqsPerSubGenome {
     set val(map), file(pep) from localPepSeqs4AliasesRep
     
   output:
-    set val(map), file(outpep) into localPepSeqs4AliasesRepSplit1, localPepSeqs4AliasesRepSplit2, temp3
+    set val(map), file("${tag}.pep") into localPepSeqs4AliasesRepSplit1, localPepSeqs4AliasesRepSplit2, temp3
   //   // set val(map), file(pep) optional true into localPepSeqs4AliasesNoSubgenomes
 
   script:    
@@ -281,11 +291,11 @@ process splitPepSeqsPerSubGenome {
         } else if(current) {
           print
         }
-      ;}' pep > outpep
+      ;}' pep > ${tag}.pep
       """
     } else {
       """
-      cp --preserve=links pep outpep
+      cp --preserve=links pep ${tag}.pep
       """
     }
   
