@@ -125,7 +125,7 @@ process fetchRemoteDataFromEnsemblPlants {
     pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
     """
     curl $idxurl > idx
-    curl $pepurl | gunzip --stdout | head -20000 > pep
+    curl $pepurl | gunzip --stdout  > pep
     """
 }
 
@@ -213,6 +213,27 @@ localPepSeqs4Aliases.subscribe onNext: {
   }
 }, onComplete: { localPepSeqs4Aliases.close(); localPepSeqs4AliasesRep.close() }
 
+// process repeatPolyPeps{
+  
+//   input:  
+//     set val(map), file(pep) from localPepSeqs4Aliases
+//   output:
+//     set val(clone), file(outpep) into localPepSeqs4AliasesRep
+
+//   exec:
+//   if(map.containsKey("subgenomes")) {
+//       for(subgenome in map.subgenomes) {
+//         clone = map.clone()
+//         clone.subgenome = subgenome
+//         outpep = pep
+//         // localPepSeqs4AliasesRep << [clone,it[1]]
+//       }
+//     // } else {
+//     //   localPepSeqs4AliasesRep << it
+//     // }
+//   }
+// }
+
 // Y = Channel.create()
 // X = Channel.from([1,null],[2,["A","B"]],[3,["A","B","C"]]).map { it -> it }
 //     .subscribe { println it };
@@ -229,6 +250,9 @@ localPepSeqs4Aliases.subscribe onNext: {
 //     }
 // }, onComplete: { X.close(); Y.close() }
 // Y.subscribe { println "AFTER: "+ it}
+//  Channel
+//    .from([1,[species:"a"]],[2,[species: "b", sub:["A","B"]]],[3,[species:"c", sub:["A","B","C"]]])
+//    .println()
 
 
 process splitPepSeqsPerSubGenome {
@@ -239,7 +263,7 @@ process splitPepSeqsPerSubGenome {
     set val(map), file(pep) from localPepSeqs4AliasesRep
     
   output:
-    set val(map), file('*pep') into localPepSeqs4AliasesRepSplit1, localPepSeqs4AliasesRepSplit2, temp3
+    set val(map), file(outpep) into localPepSeqs4AliasesRepSplit1, localPepSeqs4AliasesRepSplit2, temp3
   //   // set val(map), file(pep) optional true into localPepSeqs4AliasesNoSubgenomes
 
   script:    
@@ -257,7 +281,7 @@ process splitPepSeqsPerSubGenome {
         } else if(current) {
           print
         }
-      ;}' pep > ${map.subgenome}.pep
+      ;}' pep > outpep
       """
     } else {
       """
@@ -294,7 +318,7 @@ process pairProteins {
   tag{tag}
   label 'MMseqs2'
   errorStrategy 'ignore'
-  
+
   input:
     set val(mapA), file(pepA), val(mapB), file(pepB) from remotePepSeqs4AliasesCombined
 
