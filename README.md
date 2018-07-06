@@ -8,7 +8,7 @@ This is a [nextflow](https://www.nextflow.io) pipeline for generating input for 
 
 ### Remote
 
-The pipeline pulls data from [Ensembl plants](https://plants.ensembl.org/index.html), included species and assembly versions are specified in [input.config](input.config). 
+The pipeline pulls data from [Ensembl plants](https://plants.ensembl.org/index.html), included species and assembly versions are specified in [conf/input.config](conf/input.config). 
 
 * genome assembly index file 
 * matching protein sequences 
@@ -27,7 +27,7 @@ The pipeline requires
 * Either of:
   * Singularity
   * Docker
-  * Required software installed (e.g. as module, in which case specify its name in [`conf/modules.conf`](conf/modules.config)) 
+  * Required software installed (e.g. as module, in which case specify its name in [`conf/modules.config`](conf/modules.config)) 
 
 When using Singularity or Docker, the required containers are specified in [`conf/containers.conf`](conf/containers.config)
  
