@@ -36,7 +36,7 @@ When using Singularity or Docker, the required containers are specified in [`con
 
 ## Execution
 
-We provide several execution profiles
+We provide several execution profiles, "locally" may mean a designated server or an interactive session on a cluster. By appending  e.g. `-revision v0.1` to your command you can specify a release tag to run a revision that may be more likely to be working than the latest.
 
 Run locally with docker
 

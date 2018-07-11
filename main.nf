@@ -19,65 +19,46 @@ idxsuffix = params.idxsuffix
 // .merge(Channel.from(params.localAssemblyVersion.tokenize(",")))
 // .into { localIds1; localIds2 }
 
-// localIds1.merge(Channel.fromPath(params.localGtf)).merge(Channel.fromPath(params.localPep)).set{ localInputGtfPep }
+// localIds1.merge(Channel.fromPath(params.localgtfgff3)).merge(Channel.fromPath(params.localPep)).set{ localInputGtfGff3Pep }
 // localIds2.merge(Channel.fromPath(params.localIdx)).set { localIndices }
 
 //ARRANGE INPUTS FOR PROCESSES
-localInputGtfPep = Channel.create()
+localInputGtfGff3Pep = Channel.create()
 localIndices = Channel.create()
 params.localAssembly.each {
-  //EXPECT TO HAVE SOME DATASETS WITH gff3 instead
+  //EXPECT TO HAVE SOME DATASETS WITH gtfgff3, other with gff3 instead
   if(it.containsKey("gtf")) {
-    localInputGtfPep << [it,file(it.gtf),file(it.pep)]
+    localInputGtfGff3Pep << [it,file(it.gtf),file(it.pep)]
+  } else if(it.containsKey("gff3")) {
+    localInputGtfGff3Pep << [it,file(it.gff3),file(it.pep)]
   }
   //ALL SHOULD HAVE AN INDEX
   if(it.containsKey("idx")) {
     localIndices << [it,file(it.idx)]
   }
 }
-localInputGtfPep.close()
+localInputGtfGff3Pep.close()
 localIndices.close()
 
 
-
-
-// localInput = Channel.from(params.localAssembly)
-
-// // localInput.subscribe {
-// //     println ("HERE: $it")
-// // }
-
-//   // localInputGtfPep1 = Channel.create()
-//   // localIndices1 = Channel.create()
-
-// process prepLocalInput {
-//   tag{map}
-//   input:
-//     val(map) from localInput
-
-//    output:
-//      set(val(map),file(gtf),file(pep)) into localInputGtfPep
-//      set(val(map),file(idx)) into localIndices
-
-
-//   exec:
-//     println map.getClass()
-//      if(map.containsKey("gtf")) {
-//        gtf = file(map.gtf)
-//        pep = file(map.pep)
-//       //  localInputGtfPep << [map,file(map.gtf),file(map.pep)]
-//      }
-//     //ALL SHOULD HAVE AN INDEX
-//     if(map.containsKey("idx")) {
-//       idx = file(map.idx)
-//       // localIndices << [map,file(map.idx)]
+// //ARRANGE INPUTS FOR PROCESSES
+// referencesLocal = Channel.create()
+// referencesRemote = Channel.create()
+// params.references.each {
+//   //EXPECT TO HAVE SOME DATASETS WITH fasta  
+//   if(it.containsKey("fasta")) {
+//     if((it.fasta).matches("^(https?|ftp)://.*\$")) {
+//       referencesRemote << it
+//     } else {
+//       referencesLocal << [it,file(it.fasta)]
 //     }
+//   }
 // }
+// referencesRemote.close()
+// referencesLocal.close()
 
 
-// localInputGtfPep.subscribe {
-//    println ("HERE: $it")
-// }
+
 
 
 
@@ -117,8 +98,44 @@ process fetchRemoteDataFromEnsemblPlants {
 }
 
 
+process fetchRemoteData {
+  tag{meta.subMap(['species','version'])}
+  label 'download'
+  echo true
+
+  input:
+    val(meta) from inputRemote
+
+  // output:
+  //   set val(meta), file("${basename}.fasta") into referencesRemoteFasta    
+
+  script:
+    basename=getTagFromMeta(meta)
+    cmd = ''
+    for(key in ['idx','pep','gtf','gff3']) {      
+      if(meta.containsKey(key)) {
+        value = meta.get(key)
+        println(key+" "+value)
+      }
+    }
+    """
+    echo
+    """
+    // //DECOMPRESS?
+    // cmd = ""
+    // cmd += (meta.fasta).matches("^.*\\.gz\$") ?  "| gunzip --stdout " :  " "
+    // cmd += (meta.fasta).matches("^.*\\.zip\$") ?  "| funzip " :  " "
+    // //TRIAL RUN? ONLY TAKE FIRST n LINES
+    // cmd += trialLines != null ? "| head -n ${trialLines}" : ""    
+    // """
+    // curl ${meta.fasta} ${cmd} > ${basename}.fasta
+    // """
+}
+
+
+
 /*
-* Given a FASTA with representative peps and the corresponding GTF
+* Given a FASTA with representative peps and the corresponding gtfgff3
 * output FASTA with representative peps and definition lines
 * mimicking the ensembl plants (EP) format for such data - this can then
 * be piped into the same processes which we use for chewing through EP data
@@ -128,15 +145,21 @@ process convertReprFasta2EnsemblPep {
   label 'fastx'
 
   input:
-    set (val(map), file(gtf), file(reprPep)) from localInputGtfPep
+    set (val(map), file(gtfgff3), file(reprPep)) from localInputGtfGff3Pep
 
   output:
     set val(map), file(pep) into localPepSeqs4Features, localPepSeqs4Aliases
   script:
     tag=map.species+"_"+map.version
-    """
-    fasta_formatter < ${reprPep} | gtfAndRepr2ensembl_pep.awk -vversion="${map.version}" -vFS="\\t" - ${gtf} > pep
-    """
+    if(map.containsKey("gtf")) {
+      """
+      fasta_formatter < ${reprPep} | gtfAndRepr2ensembl_pep.awk -vversion="${map.version}" - ${gtfgff3} > pep
+      """
+    } else if(map.containsKey("gff3")) {
+      """
+      fasta_formatter < ${reprPep} | gff3AndRepr2ensembl_pep.awk -vversion="${map.version}"  - ${gtfgff3} > pep
+      """
+    }
 }
 
 /*
