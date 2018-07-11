@@ -98,39 +98,39 @@ process fetchRemoteDataFromEnsemblPlants {
 }
 
 
-process fetchRemoteData {
-  tag{meta.subMap(['species','version'])}
-  label 'download'
-  echo true
+// process fetchRemoteData {
+//   tag{meta.subMap(['species','version'])}
+//   label 'download'
+//   echo true
 
-  input:
-    val(meta) from inputRemote
+//   input:
+//     val(meta) from inputRemote
 
-  // output:
-  //   set val(meta), file("${basename}.fasta") into referencesRemoteFasta    
+//   // output:
+//   //   set val(meta), file("${basename}.fasta") into referencesRemoteFasta    
 
-  script:
-    basename=getTagFromMeta(meta)
-    cmd = ''
-    for(key in ['idx','pep','gtf','gff3']) {      
-      if(meta.containsKey(key)) {
-        value = meta.get(key)
-        println(key+" "+value)
-      }
-    }
-    """
-    echo
-    """
-    // //DECOMPRESS?
-    // cmd = ""
-    // cmd += (meta.fasta).matches("^.*\\.gz\$") ?  "| gunzip --stdout " :  " "
-    // cmd += (meta.fasta).matches("^.*\\.zip\$") ?  "| funzip " :  " "
-    // //TRIAL RUN? ONLY TAKE FIRST n LINES
-    // cmd += trialLines != null ? "| head -n ${trialLines}" : ""    
-    // """
-    // curl ${meta.fasta} ${cmd} > ${basename}.fasta
-    // """
-}
+//   script:
+//     basename=getTagFromMeta(meta)
+//     cmd = ''
+//     for(key in ['idx','pep','gtf','gff3']) {      
+//       if(meta.containsKey(key)) {
+//         value = meta.get(key)
+//         println(key+" "+value)
+//       }
+//     }
+//     """
+//     echo
+//     """
+//     // //DECOMPRESS?
+//     // cmd = ""
+//     // cmd += (meta.fasta).matches("^.*\\.gz\$") ?  "| gunzip --stdout " :  " "
+//     // cmd += (meta.fasta).matches("^.*\\.zip\$") ?  "| funzip " :  " "
+//     // //TRIAL RUN? ONLY TAKE FIRST n LINES
+//     // cmd += trialLines != null ? "| head -n ${trialLines}" : ""    
+//     // """
+//     // curl ${meta.fasta} ${cmd} > ${basename}.fasta
+//     // """
+// }
 
 
 
