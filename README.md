@@ -4,11 +4,12 @@ This is a [nextflow](https://www.nextflow.io) pipeline for generating input for 
 
 ## Input
 
-
+Input files are specified in `conf/input.config`. This can be supplemented/replaced by JSON/YAML formatted input spec.  
 
 ### Remote
 
 The pipeline pulls data from [Ensembl plants](https://plants.ensembl.org/index.html), included species and assembly versions are specified in [conf/input.config](conf/input.config). 
+For each of the datsets the pipeline downloads:
 
 * genome assembly index file 
 * matching protein sequences 
@@ -18,8 +19,8 @@ The pipeline pulls data from [Ensembl plants](https://plants.ensembl.org/index.h
 The pipeline requires 
 
 * a genome assembly index file
-* gene annotations (currently GTF but will also accept GFF3)
-* matching protein sequences
+* gene annotations (either GTF or GFF3)
+* matching protein sequences (presumably for representative isoform) 
 
 ## Dependencies
 
