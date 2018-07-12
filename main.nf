@@ -66,7 +66,7 @@ localIndices.close()
 * Download peptide seqs and assembly index files from Ensembl plants
 */
 process fetchRemoteDataFromEnsemblPlants {
-  tag{map}
+  tag{meta}
   label 'download'
 
   input:
@@ -77,11 +77,11 @@ process fetchRemoteDataFromEnsemblPlants {
     // val idxsuffix
 
   output:
-    set val(map), file(idx) into remoteIndices
-    set val(map), file(pep) into remotePepSeqs
+    set val(meta), file(idx) into remoteIndices
+    set val(meta), file(pep) into remotePepSeqs
 
   script:
-    map=["species":species, "version":version]
+    meta=["species":species, "version":version]
     idxurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/dna_index/"+species+"."+version+idxsuffix
     pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
     if(trialLines == null) {
@@ -145,19 +145,21 @@ process convertReprFasta2EnsemblPep {
   label 'fastx'
 
   input:
-    set (val(map), file(gtfgff3), file(reprPep)) from localInputGtfGff3Pep
+    set (val(meta), file(gtfgff3), file(reprPep)) from localInputGtfGff3Pep
 
   output:
-    set val(map), file(pep) into localPepSeqs4Features, localPepSeqs4Aliases
+    set val(meta), file(pep) into localPepSeqs4Features, localPepSeqs4Aliases
   script:
-    tag=map.species+"_"+map.version
-    if(map.containsKey("gtf")) {
+    tag=getTagFromMeta(meta)    
+    //TRIAL RUN? ONLY TAKE FIRST n LINES
+    cmd = trialLines != null ? "head -n ${trialLines}" : "cat" 
+    if(meta.containsKey("gtf")) {
       """
-      fasta_formatter < ${reprPep} | gtfAndRepr2ensembl_pep.awk -vversion="${map.version}" - ${gtfgff3} > pep
+      ${cmd} ${reprPep} | fasta_formatter | gtfAndRepr2ensembl_pep.awk -vversion="${meta.version}" - ${gtfgff3} > pep
       """
-    } else if(map.containsKey("gff3")) {
+    } else if(meta.containsKey("gff3")) {
       """
-      fasta_formatter < ${reprPep} | gff3AndRepr2ensembl_pep.awk -vversion="${map.version}"  - ${gtfgff3} > pep
+      ${cmd} ${reprPep} | fasta_formatter | gff3AndRepr2ensembl_pep.awk -vversion="${meta.version}"  - ${gtfgff3} > pep
       """
     }
 }
@@ -171,13 +173,13 @@ process generateGenomeBlocksJSON {
   label 'json'
 
   input:
-    set val(map), file(idx) from localIndices.mix(remoteIndices)
+    set val(meta), file(idx) from localIndices.mix(remoteIndices)
 
   output:
      file "*.json"
 
   script:
-    tag=map.species+"_"+map.version
+    tag=getTagFromMeta(meta)
     """
     awk '\$1 ~/^(chr|[0-9])/' "${idx}" \
     | faidx2json.awk -vname="${tag}" \
@@ -189,16 +191,16 @@ process generateGenomeBlocksJSON {
 * Only keep "representative" splice form for each gene, typically suffix ".1", some times "-01"
 */
 process filterForRepresentativePeps {
-  tag{map}
+  tag{meta}
   //label 'fastx'
   input:
-    set val(map), file(pep) from remotePepSeqs
+    set val(meta), file(pep) from remotePepSeqs
 
   output:
-    set val(map), file("${tag}.pep") into remotePepSeqs4Features, remotePepSeqs4Aliases1, remotePepSeqs4Aliases2
+    set val(meta), file("${tag}.pep") into remotePepSeqs4Features, remotePepSeqs4Aliases1, remotePepSeqs4Aliases2
 
   script:
-  tag=map.species+"_"+map.version
+  tag=getTagFromMeta(meta)
 
     """
     cat ${pep} | filterForRepresentative.awk > "${tag}.pep"
@@ -215,14 +217,14 @@ process generateFeaturesJSON {
   label 'json'
 
   input:
-    set val(map), file(pep) from localPepSeqs4Features.mix(remotePepSeqs4Features)
+    set val(meta), file(pep) from localPepSeqs4Features.mix(remotePepSeqs4Features)
     //WARNINIG! HC OUTPUT CURRENTLY OVERWRITEN BY LC OUTPUT (ORE VICE-VERSA)
 
   output:
     file "*.json"
 
   script:
-    tag=map.species+"_"+map.version
+    tag=getTagFromMeta(meta)
     // base=map.subgenomes.size() < 2 ? tag : tag+"_"+subgenome
     """
     awk '\$1 ~ /^>/' "${pep}"  | sort -k3,3V | pep2featuresJSON.awk -vname="${tag}" \
@@ -293,20 +295,20 @@ process splitPepSeqsPerSubGenome {
   echo true
 
   input:
-    set val(map), file(pep) from localPepSeqs4AliasesRep
+    set val(meta), file(pep) from localPepSeqs4AliasesRep
     
   output:
-    set val(map), file("${tag}.pep") into localPepSeqs4AliasesRepSplit1, localPepSeqs4AliasesRepSplit2
+    set val(meta), file("${tag}.pep") into localPepSeqs4AliasesRepSplit1, localPepSeqs4AliasesRepSplit2
   //   // set val(map), file(pep) optional true into localPepSeqs4AliasesNoSubgenomes
 
   script:    
-    tag=map.species+"_"+map.version+(map.containsKey("subgenome") ? "_"+map.subgenome : "")
-    if(map.containsKey("subgenome") && map.subgenomes.size() > 1)  {
+    tag=getUniqId(meta) //getTagFromMeta(meta)+(meta.containsKey("subgenome") ? "_"+meta.subgenome : "")
+    if(meta.containsKey("subgenome") && meta.subgenomes.size() > 1)  {
        """
        awk '{
         if(\$1 ~ /^>/) {
           split(\$3,arr,":");
-          if(arr[3] ~ /${map.subgenome}\$/) {
+          if(arr[3] ~ /${meta.subgenome}\$/) {
             current=1; print
           } else {
             current=0
@@ -327,7 +329,7 @@ process splitPepSeqsPerSubGenome {
 }
 
 
-getUniqId = { it.species+it.version+(it.containsKey("subgenome") ? "_"+it.subgenome : "")  }
+
 //COMBINE AND FILTER DUPLICATED CHANNEL TO ALLOW ALL VS ALL DATASETS COMPARISONS
 remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.mix(localPepSeqs4AliasesRepSplit1).combine(remotePepSeqs4Aliases2.mix(localPepSeqs4AliasesRepSplit2))
   .filter { getUniqId(it[0]) < getUniqId(it[2])  }  //[species,version,file.pep]
@@ -353,19 +355,19 @@ process pairProteins {
   errorStrategy 'ignore'
 
   input:
-    set val(mapA), file(pepA), val(mapB), file(pepB) from remotePepSeqs4AliasesCombined
+    set val(metaA), file(pepA), val(metaB), file(pepB) from remotePepSeqs4AliasesCombined
 
   output:
-     set val(tagA), val(tagB), file("*.tsv") into pairedProteins
+     set val(metaA), val(metaB), file("*.tsv") into pairedProteins
 
   // when:
   //   !pepA.isEmpty() && !pepB.isEmpty()
 
   script:
-    tagA=mapA.species+"_"+mapA.version //no subgenome spec to be pass to next process as used directly in JSON
-    tagB=mapB.species+"_"+mapB.version     
-    tag=tagA+(mapA.containsKey("subgenome") ? "_"+mapA.subgenome : "")+"_VS_"+tagB+(mapB.containsKey("subgenome") ? "_"+mapB.subgenome : "")
-    // labtag=mapA.toString()+" VS "+mapB.toString()
+    tagA=metaA.species+"_"+metaA.version //no subgenome spec to be pass to next process as used directly in JSON
+    tagB=metaB.species+"_"+metaB.version     
+    tag=tagA+(metaA.containsKey("subgenome") ? "_"+metaA.subgenome : "")+"_VS_"+tagB+(metaB.containsKey("subgenome") ? "_"+metaB.subgenome : "")
+    // labtag=metaA.toString()+" VS "+metaB.toString()
     """
     mmseqs easy-search ${pepA} ${pepB} ${tag}.tsv \${TMPDIR:-/tmp}/${tag} \
     --greedy-best-hits --threads ${task.cpus} -v 1
@@ -378,22 +380,36 @@ process pairProteins {
 * Generate JSON aliases linking features between chromosomes/genomes
 */
 process generateAliasesJSON {
-  tag{tag}
+  tag{basename}
   label 'json'
 
   input:
-    set(val(tag1), val(tag2), file(paired)) from pairedProteins
+    set(val(metaA), val(metaB), file(paired)) from pairedProteins
 
   output:
     file "*.json"
 
-  script:
-    tag=tag1+"_VS_"+tag2
+  script:    
+    tag1=getTagFromMeta(metaA)
+    tag2=getTagFromMeta(metaB)
+    basename=tag1+"_VS_"+tag2
     namespace1=tag1+":"+tag1+"_annotation"
     namespace2=tag2+":"+tag2+"_annotation"
     """
     blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} ${paired} \
-    | python -mjson.tool > ${tag}_aliases.json
+    | python -mjson.tool > ${basename}_aliases.json
     """
 }
 
+/* 
+  Generic method for extracting a string tag or a file basename from a metadata map
+ */
+def getTagFromMeta(meta, delim = '_') {
+  return meta.species+delim+meta.version+(trialLines == null ? "" : delim+trialLines+delim+"trialLines")
+}
+
+/* 
+  Generic method for extracting a string tag or a file basename from a metadata map allowing for an optional subGenome suffix
+ */
+def getUniqId(meta, delim = '_') { 
+  return getTagFromMeta(meta, delim)+(meta.containsKey("subgenome") ? "_"+meta.subgenome : "")  }
