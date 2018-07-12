@@ -1,13 +1,15 @@
 #!/usr/bin/awk -f
 
 BEGIN {
-  print "{";
+  IGNORECASE=1; #for regex matches
   OFS="    "; #used for indent only
   z="";
+  print "{";  
   print "  \"name\": \""name"\",";
   print "  \"blocks\": [";
 }
 {
+  gsub(/chr_?/,"",$1);
   if(NR>1) 
     print z,"},";
   print z,"{";

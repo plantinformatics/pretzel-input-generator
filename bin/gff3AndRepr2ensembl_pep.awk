@@ -2,6 +2,7 @@
 
 BEGIN {
   FS="\t";
+  IGNORECASE=1; #for regex matches
 }
 NR==FNR {
   if($1 ~ /^>/ ) {
@@ -15,7 +16,7 @@ NR==FNR {
 
 NR!=FNR {
   if($3 =="mRNA") {
-    gsub("\"","");
+    gsub("\"","");    
     split($9,arr,";| "); 
     for(i in arr) {
       split(arr[i], pair, "=");      
@@ -26,6 +27,9 @@ NR!=FNR {
       }
     }
     if(transcript in repr) { 
+      #IGNORECASE=1;
+      gsub(/chr_?/,"",$1);
+      #IGNORECASE=0;
       print ">"transcript" pep chromosome:"version":"$1":"$4":"$5" gene:"gene"\n"repr[transcript]; 
     }
   }

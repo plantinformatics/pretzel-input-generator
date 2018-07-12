@@ -155,7 +155,7 @@ process convertReprFasta2EnsemblPep {
     cmd = trialLines != null ? "head -n ${trialLines}" : "cat" 
     if(meta.containsKey("gtf")) {
       """
-      ${cmd} ${reprPep} | fasta_formatter | gtfAndRepr2ensembl_pep.awk -vversion="${meta.version}" - ${gtfgff3} > pep
+      ${cmd} ${reprPep} |  fasta_formatter | gtfAndRepr2ensembl_pep.awk -vversion="${meta.version}" - ${gtfgff3} > pep
       """
     } else if(meta.containsKey("gff3")) {
       """
@@ -181,7 +181,7 @@ process generateGenomeBlocksJSON {
   script:
     tag=getTagFromMeta(meta)
     """
-    awk '\$1 ~/^(chr|[0-9])/' "${idx}" \
+    awk 'BEGIN{IGNORECASE=1;} \$1 ~/^(chr|[0-9])/' "${idx}" \
     | faidx2json.awk -vname="${tag}" \
     | python -mjson.tool > "${tag}"_genome.json
     """
@@ -297,8 +297,8 @@ process splitPepSeqsPerSubGenome {
   input:
     set val(meta), file(pep) from localPepSeqs4AliasesRep
     
-  output:
-    set val(meta), file("${tag}.pep") into localPepSeqs4AliasesRepSplit1, localPepSeqs4AliasesRepSplit2
+  output: //optional true to account for empty files produced during trial runs, e.g. no peps for subgenomes B, D but A only
+    set val(meta), file("${tag}.pep") into localPepSeqs4AliasesRepSplit1, localPepSeqs4AliasesRepSplit2 
   //   // set val(map), file(pep) optional true into localPepSeqs4AliasesNoSubgenomes
 
   script:    
@@ -316,7 +316,7 @@ process splitPepSeqsPerSubGenome {
         } else if(current) {
           print
         }
-      ;}' pep > ${tag}.pep
+      }' pep > ${tag}.pep
       """
     } else {
       """
@@ -363,10 +363,15 @@ process pairProteins {
   // when:
   //   !pepA.isEmpty() && !pepB.isEmpty()
 
-  script:
-    tagA=metaA.species+"_"+metaA.version //no subgenome spec to be pass to next process as used directly in JSON
-    tagB=metaB.species+"_"+metaB.version     
-    tag=tagA+(metaA.containsKey("subgenome") ? "_"+metaA.subgenome : "")+"_VS_"+tagB+(metaB.containsKey("subgenome") ? "_"+metaB.subgenome : "")
+  script:    
+    // x = file(pepA)
+    // println(x.getName())    
+    // tagA=metaA.species+"_"+metaA.version //no subgenome spec to be pass to next process as used directly in JSON
+    // tagB=metaB.species+"_"+metaB.version     
+    // tag=tagA+(metaA.containsKey("subgenome") ? "_"+metaA.subgenome : "")+"_VS_"+tagB+(metaB.containsKey("subgenome") ? "_"+metaB.subgenome : "")
+    // tagA=getTagFromMeta(metaA)
+    // tagB=getTagFromMeta(metaB)
+    tag=getUniqId(metaA)+"_VS_"+getUniqId(metaB)
     // labtag=metaA.toString()+" VS "+metaB.toString()
     """
     mmseqs easy-search ${pepA} ${pepB} ${tag}.tsv \${TMPDIR:-/tmp}/${tag} \
@@ -412,4 +417,4 @@ def getTagFromMeta(meta, delim = '_') {
   Generic method for extracting a string tag or a file basename from a metadata map allowing for an optional subGenome suffix
  */
 def getUniqId(meta, delim = '_') { 
-  return getTagFromMeta(meta, delim)+(meta.containsKey("subgenome") ? "_"+meta.subgenome : "")  }
+  return getTagFromMeta(meta, delim)+(meta.containsKey("subgenome") ? delim+meta.subgenome : "")  }
