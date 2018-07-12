@@ -375,8 +375,9 @@ process pairProteins {
     // labtag=metaA.toString()+" VS "+metaB.toString()
     """
     mmseqs easy-search ${pepA} ${pepB} ${tag}.tsv \${TMPDIR:-/tmp}/${tag} \
-    --greedy-best-hits --threads ${task.cpus} -v 1
+    --format-mode 2 --greedy-best-hits --threads ${task.cpus} -v 1
     """
+    //'qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen'
 }
 
 // //  remotePepSeqs4Aliases1.combine(remotePepSeqs4Aliases2).filter { it[0] != it [3]  && it[0]+it[1] < it[3]+it[4]} .subscribe { println  "NOPE: $it" }
@@ -392,18 +393,39 @@ process generateAliasesJSON {
     set(val(metaA), val(metaB), file(paired)) from pairedProteins
 
   output:
-    file "*.json"
+    file "${basename}_aliases.json" into aliasesJSON
 
   script:    
     tag1=getTagFromMeta(metaA)
     tag2=getTagFromMeta(metaB)
-    basename=tag1+"_VS_"+tag2
+    basename=getUniqId(metaA)+"_VS_"+getUniqId(metaB)
     namespace1=tag1+":"+tag1+"_annotation"
     namespace2=tag2+":"+tag2+"_annotation"
     """
     blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} ${paired} \
     | python -mjson.tool > ${basename}_aliases.json
     """
+}
+
+process mergeAliasesJSON {  
+  label 'json'
+  echo true 
+
+  input:
+    file '*' from aliasesJSON.collect()
+
+  output:
+    file "merged_aliases.json"
+  
+    '''    
+    JSON=$(ls *.json)
+    echo "[" > merged_aliases.json    
+    for f in ${JSON}; do
+      sed '1d;$d' ${f} | sed 's/}$/},/' 
+    done | sed '$d' >> merged_aliases.json
+    echo -e "    }\n]" >> merged_aliases.json
+    '''
+    //cat ${JSON} | grep -Ev '^(\\[|\\])$'; \
 }
 
 /* 
