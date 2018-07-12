@@ -1,6 +1,7 @@
 #!/usr/bin/awk -f
 
 BEGIN {
+  IGNORECASE=1; #for regex matches
   print "{";
   OFS="    "; #used for indent only
   z="";
@@ -10,8 +11,9 @@ BEGIN {
   print "  \"blocks\": [";
 }
 {
-  if($1 ~ /^>/ && $3 ~/^chromosome/) { #>AT3G05780.1 pep chromosome:TAIR10:3:1714941:1719608:-1 gene:AT3G05780
+  if($1 ~ /^>/ && $3 ~/^chromosome/) { #>AT3G05780.1 pep chromosome:TAIR10:3:1714941:1719608:-1 gene:AT3G05780    
     split($3,location,":");
+    gsub(/chr_?/,"",location[3]);
     split($4,gene,":");
     if(location[3] == currentChromosome) { #ANOTHER GENE IN BLOCK/CHR
       print z,z,z,"},";
@@ -22,7 +24,7 @@ BEGIN {
         print z,z,"\"featureType\": \"linear\"";
         print z,"},";
       }
-      currentChromosome = location[3]
+      currentChromosome = location[3];
       print z,"{";
       print z,z,"\"scope\": \""currentChromosome"\",";
       print z,z,"\"features\": [";
