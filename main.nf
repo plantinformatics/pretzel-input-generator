@@ -26,18 +26,18 @@ idxsuffix = params.idxsuffix
 localInputGtfGff3Pep = Channel.create()
 localIndices = Channel.create()
 if(params.localAssembly != "NA") {
-params.localAssembly.each {
-  //EXPECT TO HAVE SOME DATASETS WITH gtfgff3, other with gff3 instead
-  if(it.containsKey("gtf")) {
-    localInputGtfGff3Pep << [it,file(it.gtf),file(it.pep)]
-  } else if(it.containsKey("gff3")) {
-    localInputGtfGff3Pep << [it,file(it.gff3),file(it.pep)]
+  params.localAssembly.each {
+    //EXPECT TO HAVE SOME DATASETS WITH gtfgff3, other with gff3 instead
+    if(it.containsKey("gtf")) {
+      localInputGtfGff3Pep << [it,file(it.gtf),file(it.pep)]
+    } else if(it.containsKey("gff3")) {
+      localInputGtfGff3Pep << [it,file(it.gff3),file(it.pep)]
+    }
+    //ALL SHOULD HAVE AN INDEX
+    if(it.containsKey("idx")) {
+      localIndices << [it,file(it.idx)]
+    }
   }
-  //ALL SHOULD HAVE AN INDEX
-  if(it.containsKey("idx")) {
-    localIndices << [it,file(it.idx)]
-  }
-}
 }
 localInputGtfGff3Pep.close()
 localIndices.close()
