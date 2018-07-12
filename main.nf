@@ -25,6 +25,7 @@ idxsuffix = params.idxsuffix
 //ARRANGE INPUTS FOR PROCESSES
 localInputGtfGff3Pep = Channel.create()
 localIndices = Channel.create()
+if(params.localAssembly != "NA") {
 params.localAssembly.each {
   //EXPECT TO HAVE SOME DATASETS WITH gtfgff3, other with gff3 instead
   if(it.containsKey("gtf")) {
@@ -36,6 +37,7 @@ params.localAssembly.each {
   if(it.containsKey("idx")) {
     localIndices << [it,file(it.idx)]
   }
+}
 }
 localInputGtfGff3Pep.close()
 localIndices.close()
@@ -407,26 +409,26 @@ process generateAliasesJSON {
     """
 }
 
-process mergeAliasesJSON {  
-  label 'json'
-  echo true 
+// process mergeAliasesJSON {  
+//   label 'json'
+//   echo true 
 
-  input:
-    file '*' from aliasesJSON.collect()
+//   input:
+//     file '*' from aliasesJSON.collect()
 
-  output:
-    file "merged_aliases.json"
+//   output:
+//     file "merged_aliases.json"
   
-    '''    
-    JSON=$(ls *.json)
-    echo "[" > merged_aliases.json    
-    for f in ${JSON}; do
-      sed '1d;$d' ${f} | sed 's/}$/},/' 
-    done | sed '$d' >> merged_aliases.json
-    echo -e "    }\n]" >> merged_aliases.json
-    '''
-    //cat ${JSON} | grep -Ev '^(\\[|\\])$'; \
-}
+//     '''    
+//     JSON=$(ls *.json)
+//     echo "[" > merged_aliases.json    
+//     for f in ${JSON}; do
+//       sed '1d;$d' ${f} | sed 's/}$/},/' 
+//     done | sed '$d' >> merged_aliases.json
+//     echo -e "    }\n]" >> merged_aliases.json
+//     '''
+//     //cat ${JSON} | grep -Ev '^(\\[|\\])$'; \
+// }
 
 /* 
   Generic method for extracting a string tag or a file basename from a metadata map

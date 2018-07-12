@@ -4,7 +4,7 @@ This is a [nextflow](https://www.nextflow.io) pipeline for generating input for 
 
 ## Input
 
-Input files are specified in `conf/input.config`. This can be supplemented/replaced by JSON/YAML formatted input spec.  
+Input files are specified in [conf/input.config](conf/input.config). This can be supplemented/replaced by JSON/YAML formatted input spec.  
 
 ### Remote
 
@@ -21,6 +21,8 @@ The pipeline requires
 * a genome assembly index file
 * gene annotations (either GTF or GFF3)
 * matching protein sequences (presumably for representative isoform) 
+
+Currently, some datasets are specified and to run this pipeline without the specified files, use `--localAssembly NA` at execution or modify your local copy of [conf/input.config](conf/input.config)
 
 ## Dependencies
 
@@ -42,23 +44,24 @@ We provide several execution profiles, "locally" may mean a designated server or
 Run locally with docker
 
 ```
-nextflow run rsuchecki/pretzel-input-generator -resume -profile docker
+nextflow run rsuchecki/pretzel-input-generator -resume -profile docker --localAssembly NA
 ```
 
 Run locally with singularity
 
 ```
-nextflow run rsuchecki/pretzel-input-generator -resume -profile singularity
+nextflow run rsuchecki/pretzel-input-generator -resume -profile singularity --localAssembly NA
 ```
 
 Dispatch on a SLURM cluster with singularity
 
 ```
-nextflow run rsuchecki/pretzel-input-generator -resume -profile slurm,singularity,singularitymodule
+nextflow run rsuchecki/pretzel-input-generator -resume -profile slurm,singularity,singularitymodule --localAssembly NA
 ```
 
 Dispatch on a SLURM cluster with modules
 
 ```
-nextflow run rsuchecki/pretzel-input-generator -resume -profile slurm,modules
+nextflow run rsuchecki/pretzel-input-generator -resume -profile slurm,modules --localAssembly NA
 ```
+
