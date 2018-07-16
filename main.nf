@@ -79,22 +79,23 @@ process fetchRemoteDataFromEnsemblPlants {
     // val idxsuffix
 
   output:
-    set val(meta), file(idx) into remoteIndices
-    set val(meta), file(pep) into remotePepSeqs
+    set val(meta), file("${basename}.idx") into remoteIndices
+    set val(meta), file("${basename}.pep") into remotePepSeqs
 
   script:
     meta=["species":species, "version":version]
+    basename=getTagFromMeta(meta)
     idxurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/dna_index/"+species+"."+version+idxsuffix
     pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
     if(trialLines == null) {
       """
-      curl $idxurl > idx
-      curl $pepurl | gunzip --stdout > pep
+      curl $idxurl > ${basename}.idx
+      curl $pepurl | gunzip --stdout > ${basename}.pep
       """
     } else {
       """
-      curl $idxurl > idx
-      curl $pepurl | gunzip --stdout | head -n ${trialLines} > pep
+      curl $idxurl > ${basename}.idx
+      curl $pepurl | gunzip --stdout | head -n ${trialLines} > ${basename}.pep
       """
     }
 }
@@ -184,8 +185,8 @@ process generateGenomeBlocksJSON {
     tag=getTagFromMeta(meta)
     """
     awk 'BEGIN{IGNORECASE=1;} \$1 ~/^(chr|[0-9])/' "${idx}" \
-    | faidx2json.awk -vname="${tag}" \
-    | python -mjson.tool > "${tag}"_genome.json
+    | faidx2json.awk -vname=${tag} \
+    | python -mjson.tool > ${tag}_genome.json
     """
 }
 
@@ -199,13 +200,13 @@ process filterForRepresentativePeps {
     set val(meta), file(pep) from remotePepSeqs
 
   output:
-    set val(meta), file("${tag}.pep") into remotePepSeqs4Features, remotePepSeqs4Aliases1, remotePepSeqs4Aliases2
+    set val(meta), file("${tag}_repr.pep") into remotePepSeqs4Features, remotePepSeqs4Aliases1, remotePepSeqs4Aliases2
 
   script:
   tag=getTagFromMeta(meta)
 
     """
-    cat ${pep} | filterForRepresentative.awk > "${tag}.pep"
+    cat ${pep} | filterForRepresentative.awk > ${tag}_repr.pep
     """
 }
 
@@ -229,8 +230,8 @@ process generateFeaturesJSON {
     tag=getTagFromMeta(meta)
     // base=map.subgenomes.size() < 2 ? tag : tag+"_"+subgenome
     """
-    awk '\$1 ~ /^>/' "${pep}"  | sort -k3,3V | pep2featuresJSON.awk -vname="${tag}" \
-    | python -mjson.tool > "${tag}"_annotation.json
+    awk '\$1 ~ /^>/' ${pep}  | sort -k3,3V | pep2featuresJSON.awk -vname="${tag}" \
+    | python -mjson.tool > ${tag}_annotation.json
     """
 }
 
