@@ -156,6 +156,7 @@ process convertReprFasta2EnsemblPep {
     tag=getTagFromMeta(meta)    
     //TRIAL RUN? ONLY TAKE FIRST n LINES
     cmd = trialLines != null ? "head -n ${trialLines}" : "cat" 
+    //cmd = "cat"
     if(meta.containsKey("gtf")) {
       """
       ${cmd} ${reprPep} |  fasta_formatter | gtfAndRepr2ensembl_pep.awk -vversion="${meta.version}" - ${gtfgff3} > pep
@@ -390,18 +391,18 @@ process pairProteins {
 */
 process generateAliasesJSON {
   tag{basename}
-  label 'json'
 
   input:
     set(val(metaA), val(metaB), file(paired)) from pairedProteins
 
   output:
-    file "${basename}_aliases.json" into aliasesJSON
+    set val(outtag), file("${basename}_aliases.json") into aliasesJSON
 
   script:    
     tag1=getTagFromMeta(metaA)
     tag2=getTagFromMeta(metaB)
     basename=getUniqId(metaA)+"_VS_"+getUniqId(metaB)
+    outtag=tag1+"_VS_"+tag2
     namespace1=tag1+":"+tag1+"_annotation"
     namespace2=tag2+":"+tag2+"_annotation"
     """
@@ -410,26 +411,36 @@ process generateAliasesJSON {
     """
 }
 
-// process mergeAliasesJSON {  
-//   label 'json'
-//   echo true 
 
-//   input:
-//     file '*' from aliasesJSON.collect()
 
-//   output:
-//     file "merged_aliases.json"
+
+process mergeAliasesJSON {  
+  label 'json'
+  tag{out}
+
+  input:
+    val tuple from aliasesJSON.groupTuple() //basename followed by a list of one or more *_alisaes.json file names
+
+  output:
+    file "*"
   
-//     '''    
-//     JSON=$(ls *.json)
-//     echo "[" > merged_aliases.json    
-//     for f in ${JSON}; do
-//       sed '1d;$d' ${f} | sed 's/}$/},/' 
-//     done | sed '$d' >> merged_aliases.json
-//     echo -e "    }\n]" >> merged_aliases.json
-//     '''
-//     //cat ${JSON} | grep -Ev '^(\\[|\\])$'; \
-// }
+  script:
+    out=tuple[0]
+    files=tuple[1].join(" ") 
+    if(tuple[1].size() < 2) {
+      """
+      cp --preserve=links ${files} ${out}_aliases.json
+      """
+    } else {
+      """    
+      echo "[" > ${out}_aliases.json    
+      for f in ${files}; do
+        sed '1d;\$d' \${f} | sed 's/}\$/},/' 
+      done | sed '\$d' >> ${out}_aliases.json
+      echo -e "    }\n]" >> ${out}_aliases.json
+      """
+    }
+}
 
 /* 
   Generic method for extracting a string tag or a file basename from a metadata map
