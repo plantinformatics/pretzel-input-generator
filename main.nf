@@ -354,7 +354,7 @@ remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.mix(localPepSeqs4AliasesR
 * Identify best hit for each pep
 */
 process pairProteins {
-  tag{tag}
+  tag{meta}
   label 'MMseqs2'
   errorStrategy 'ignore'
 
@@ -375,10 +375,11 @@ process pairProteins {
     // tag=tagA+(metaA.containsKey("subgenome") ? "_"+metaA.subgenome : "")+"_VS_"+tagB+(metaB.containsKey("subgenome") ? "_"+metaB.subgenome : "")
     // tagA=getTagFromMeta(metaA)
     // tagB=getTagFromMeta(metaB)
-    tag=getUniqId(metaA)+"_VS_"+getUniqId(metaB)
+    meta = ["query": getTagFromMeta(metaA), "target": getTagFromMeta(metaB)]
+    basename=getUniqId(metaA)+"_VS_"+getUniqId(metaB)
     // labtag=metaA.toString()+" VS "+metaB.toString()
     """
-    mmseqs easy-search ${pepA} ${pepB} ${tag}.tsv \${TMPDIR:-/tmp}/${tag} \
+    mmseqs easy-search ${pepA} ${pepB} ${basename}.tsv \${TMPDIR:-/tmp}/${basename} \
     --format-mode 2 --greedy-best-hits --threads ${task.cpus} -v 1
     """
     //'qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen'
