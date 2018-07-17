@@ -1,0 +1,93 @@
+digraph dag {
+p0 [shape=point,label="",fixedsize=true,width=0.1];
+p2 [label="fetchRemoteDataFromEnsemblPlants"];
+p0 -> p2 [label="species"];
+
+p1 [shape=point,label="",fixedsize=true,width=0.1];
+p2 [label="fetchRemoteDataFromEnsemblPlants"];
+p1 -> p2 [label="version"];
+
+p2 [label="fetchRemoteDataFromEnsemblPlants"];
+p6 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p2 -> p6 [label="remoteIndices"];
+
+p2 [label="fetchRemoteDataFromEnsemblPlants"];
+p8 [label="filterForRepresentativePeps"];
+p2 -> p8 [label="remotePepSeqs"];
+
+p3 [shape=point,label="",fixedsize=true,width=0.1];
+p4 [label="convertReprFasta2EnsemblPep"];
+p3 -> p4 [label="localInputGtfGff3Pep"];
+
+p4 [label="convertReprFasta2EnsemblPep"];
+p9 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p4 -> p9 [label="localPepSeqs4Features"];
+
+p4 [label="convertReprFasta2EnsemblPep"];
+p11 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="repeatIfSubGenomes"];
+p4 -> p11 [label="localPepSeqs4Aliases"];
+
+p5 [shape=point,label="",fixedsize=true,width=0.1];
+p6 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p5 -> p6 [label="localIndices"];
+
+p6 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p7 [label="generateGenomeBlocksJSON"];
+p6 -> p7;
+
+p8 [label="filterForRepresentativePeps"];
+p9 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p8 -> p9 [label="remotePepSeqs4Features"];
+
+p8 [label="filterForRepresentativePeps"];
+p14 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p8 -> p14 [label="remotePepSeqs4Aliases1"];
+
+p8 [label="filterForRepresentativePeps"];
+p15 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p8 -> p15 [label="remotePepSeqs4Aliases2"];
+
+p9 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p10 [label="generateFeaturesJSON"];
+p9 -> p10;
+
+p13 [label="splitPepSeqsPerSubGenome"];
+p11 -> p13 [label="localPepSeqs4AliasesRep"];
+
+p13 [label="splitPepSeqsPerSubGenome"];
+p14 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p13 -> p14 [label="localPepSeqs4AliasesRepSplit1"];
+
+p13 [label="splitPepSeqsPerSubGenome"];
+p15 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p13 -> p15 [label="localPepSeqs4AliasesRepSplit2"];
+
+p14 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p16 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="combine"];
+p14 -> p16;
+
+p15 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p16 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="combine"];
+p15 -> p16;
+
+p16 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="combine"];
+p17 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="filter"];
+p16 -> p17;
+
+p17 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="filter"];
+p18 [label="pairProteins"];
+p17 -> p18 [label="remotePepSeqs4AliasesCombined"];
+
+p18 [label="pairProteins"];
+p19 [label="generateAliasesJSON"];
+p18 -> p19 [label="pairedProteins"];
+
+p19 [label="generateAliasesJSON"];
+p20 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="groupTuple"];
+p19 -> p20 [label="aliasesJSON"];
+
+p20 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="groupTuple"];
+p21 [label="mergeAliasesJSON"];
+p20 -> p21;
+
+}
