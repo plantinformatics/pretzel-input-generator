@@ -2,9 +2,23 @@
 
 This is a [nextflow](https://www.nextflow.io) pipeline for generating input for [pretzel](https://github.com/plantinformatics/pretzel) from annotated and (mostly) contiguous genome assemblies. 
 
+
+
 ## Input
 
 Input files are specified in [conf/input.config](conf/input.config). This can be supplemented/replaced by JSON/YAML formatted input spec.  
+
+### Data sources
+
+Currently all input data comes from the following sources:
+
+* [Ensembl plants](https://plants.ensembl.org) - multiple datasets as specified in [`conf/input.config`](conf/input.config)
+* [International Wheat Genome Sequencing Consortium](https://www.wheatgenome.org/)
+  * [Triticum aestivum (Chinese Spring) IWGSC RefSeq v1.0 assembly](https://wheat-urgi.versailles.inra.fr/Seq-Repository/Assemblies)
+* [The wild emmer wheat sequencing consortium (WEWseq)](http://wewseq.wixsite.com/consortium)
+  * Zavitan assembly downloaded from [GrainGenes](https://wheat.pw.usda.gov/GG3/wildemmer)
+  * Publication: [Wild emmer genome architecture and diversity elucidate wheat evolution and domestication. Raz Avni *et al.*, Science  07 Jul 2017, Vol. 357, Issue 6346, pp. 93-97 DOI: 10.1126/science.aan0032](http://science.sciencemag.org/content/357/6346/93)
+
 
 ### Remote
 
@@ -90,13 +104,12 @@ results
 └── JSON
 ```
 
-## Data sources
+To upload the generated data to your instance of pretzel, follow [these instructions](upload.md). 
 
-Currently all input data comes from the following sources:
 
-* [Ensembl plants](https://plants.ensembl.org) - multiple datasets as specified in [`conf/input.config`](conf/input.config)
-* [International Wheat Genome Sequencing Consortium](https://www.wheatgenome.org/)
-  * [Triticum aestivum (Chinese Spring) IWGSC RefSeq v1.0 assembly](https://wheat-urgi.versailles.inra.fr/Seq-Repository/Assemblies)
-* [The wild emmer wheat sequencing consortium (WEWseq)](http://wewseq.wixsite.com/consortium)
-  * Zavitan assembly downloaded from [GrainGenes](https://wheat.pw.usda.gov/GG3/wildemmer)
-  * Publication: [Wild emmer genome architecture and diversity elucidate wheat evolution and domestication. Raz Avni *et al.*, Science  07 Jul 2017, Vol. 357, Issue 6346, pp. 93-97 DOI: 10.1126/science.aan0032](http://science.sciencemag.org/content/357/6346/93)
+## Pipeline overview
+
+The pipeline requires approximately 1 cpu-day, but as many processes can run independently, the real run-time is much shorter.
+
+The chart below is a manually modified version of the one produced by nextflow when `-with-dag` option is specified
+![doc/dag_mod.png](doc/dag_mod.png)
