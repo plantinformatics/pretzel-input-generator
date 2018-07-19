@@ -259,6 +259,7 @@ process filterForRepresentativePeps {
 process generateFeaturesJSON {
   tag{tag}
   label 'json'
+  label 'groovy'
 
   input:
     set val(meta), file(pep) from localPepSeqs4Features.mix(remotePepSeqs4Features)
