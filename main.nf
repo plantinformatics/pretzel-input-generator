@@ -295,7 +295,7 @@ process generateFeaturesJSON {
         toks = line.split()
         location = toks[2].split(":")
         gene = toks[3].split(":")
-        key = location[2]
+        key = location[2].replaceFirst("^(C|c)(H|h)(R|r)[_]?","")
         if(!scope.containsKey(key)) {
           scope << [(key) : []]
         }
