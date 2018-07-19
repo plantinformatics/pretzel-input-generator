@@ -286,7 +286,7 @@ process generateFeaturesJSON {
       annotation.meta << ["citation" : "${meta.citation}"]
     }
     annotation.name = "${tag}_genes"
-    annotation.namespace = "${tag}:${tag}"
+    annotation.namespace = "${tag}:${tag}_annotation"
     annotation.parent = "${tag}"
     annotation.blocks = []  
     TreeMap scope = [:] //keep keys sorted as the corresponding blocks get displayed in order in pretzel
