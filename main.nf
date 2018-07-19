@@ -186,7 +186,7 @@ process generateGenomeBlocksJSON {
     idx.eachLine { line ->       
       if(line.toLowerCase() =~ /^(chr|[0-9])/ ) {
         toks = line.split('\t')
-        genome.blocks += [ "scope": toks[0].replaceFirst("^(C|c)(H|h)(R|r)_?",""), "featureType": "linear", "range": [1, toks[1].toInteger()] ]
+        genome.blocks += [ "scope": toks[0].replaceFirst("^(C|c)(H|h)(R|r)[_]?",""), "featureType": "linear", "range": [1, toks[1].toInteger()] ]
       }      
     }
     out.text = prettyPrint(toJson(genome))
