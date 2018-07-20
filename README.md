@@ -76,7 +76,7 @@ nextflow run plantinformatics/pretzel-input-generator \
 -profile slurm,singularity,singularitymodule --localAssembly NA
 ```
 
-Dispatch on a SLURM cluster with modules
+Dispatch on a SLURM cluster with modules (defined in [conf/modules.config](conf/modules.config))
 
 ```
 nextflow run plantinformatics/pretzel-input-generator \
@@ -111,5 +111,6 @@ To upload the generated data to your instance of pretzel, follow [these instruct
 
 The pipeline requires approximately 1 cpu-day, but as many processes can run independently, the real run-time is much shorter.
 
-The chart below is a manually modified version of the one produced by nextflow when `-with-dag` option is specified
-![doc/dag_mod.png](doc/dag_mod.png)
+If `-with-dag dag.dot` is specified, nextflow outputs a DOT language representation of the pipeline, as presented below. 
+
+![doc/dag.png](doc/dag.png)

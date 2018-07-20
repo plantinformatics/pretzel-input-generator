@@ -1,0 +1,90 @@
+digraph dag {
+p0 [shape=point,label="",fixedsize=true,width=0.1];
+p2 [label="fetchRemoteDataFromEnsemblPlants"];
+p0 -> p2 [label="species"];
+
+p1 [shape=point,label="",fixedsize=true,width=0.1];
+p2 [label="fetchRemoteDataFromEnsemblPlants"];
+p1 -> p2 [label="version"];
+
+p2 [label="fetchRemoteDataFromEnsemblPlants"];
+p4 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p2 -> p4 [label="remoteIndices"];
+
+p2 [label="fetchRemoteDataFromEnsemblPlants"];
+p9 [label="filterForRepresentativePeps"];
+p2 -> p9 [label="remotePepSeqs"];
+
+p3 [shape=point,label="",fixedsize=true,width=0.1];
+p4 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p3 -> p4 [label="localIndices"];
+
+p4 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p5 [label="generateGenomeBlocksJSON"];
+p4 -> p5;
+
+p5 [label="generateGenomeBlocksJSON"];
+p6 [shape=point];
+p5 -> p6 [label="genomeBlocksJSON"];
+
+p7 [shape=point,label="",fixedsize=true,width=0.1];
+p8 [label="convertReprFasta2EnsemblPep"];
+p7 -> p8 [label="localInputGtfGff3Pep"];
+
+p8 [label="convertReprFasta2EnsemblPep"];
+p10 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p8 -> p10 [label="localPepSeqs4Features"];
+
+p8 [label="convertReprFasta2EnsemblPep"];
+p13 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p8 -> p13 [label="localPepSeqs4Aliases1"];
+
+p8 [label="convertReprFasta2EnsemblPep"];
+p14 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p8 -> p14 [label="localPepSeqs4Aliases2"];
+
+p9 [label="filterForRepresentativePeps"];
+p10 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p9 -> p10 [label="remotePepSeqs4Features"];
+
+p9 [label="filterForRepresentativePeps"];
+p13 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p9 -> p13 [label="remotePepSeqs4Aliases1"];
+
+p9 [label="filterForRepresentativePeps"];
+p14 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p9 -> p14 [label="remotePepSeqs4Aliases2"];
+
+p10 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p11 [label="generateFeaturesJSON"];
+p10 -> p11;
+
+p11 [label="generateFeaturesJSON"];
+p12 [shape=point];
+p11 -> p12 [label="featuresJSON"];
+
+p13 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p15 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="combine"];
+p13 -> p15;
+
+p14 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="mix"];
+p15 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="combine"];
+p14 -> p15;
+
+p15 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="combine"];
+p16 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="filter"];
+p15 -> p16;
+
+p16 [shape=circle,label="",fixedsize=true,width=0.1,xlabel="filter"];
+p17 [label="pairProteins"];
+p16 -> p17 [label="remotePepSeqs4AliasesCombined"];
+
+p17 [label="pairProteins"];
+p18 [label="generateAliasesJSON"];
+p17 -> p18 [label="pairedProteins"];
+
+p18 [label="generateAliasesJSON"];
+p19 [shape=point];
+p18 -> p19 [label="aliasesJSON"];
+
+}
