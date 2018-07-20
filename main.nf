@@ -95,7 +95,7 @@ process fetchRemoteDataFromEnsemblPlants {
     set val(meta), file("${basename}.pep") into remotePepSeqs
 
   script:
-    meta=["species":species, "version":version, "source": "https://plants.ensembl.org/"+species]
+    meta=["species":species, "version":version, "source": "https://plants.ensembl.org/"+species, "release": params.eprelease]
     basename=getTagFromMeta(meta)
     idxurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/dna_index/"+species+"."+version+idxsuffix
     pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
@@ -163,7 +163,7 @@ process generateGenomeBlocksJSON {
     set val(meta), file(idx) from localIndices.mix(remoteIndices)
 
   output:
-    file "*.json"
+    file "*.json" into genomeBlocksJSON
 
   script:
     tag=getTagFromMeta(meta)
@@ -214,7 +214,7 @@ process convertReprFasta2EnsemblPep {
     set (val(meta), file(gtfgff3), file(reprPep)) from localInputGtfGff3Pep
 
   output:
-    set val(meta), file(pep) into localPepSeqs4Features, localPepSeqs4Aliases
+    set val(meta), file(pep) into localPepSeqs4Features, localPepSeqs4Aliases1, localPepSeqs4Aliases2
   script:
     tag=getTagFromMeta(meta)    
     //TRIAL RUN? ONLY TAKE FIRST n LINES
@@ -266,7 +266,7 @@ process generateFeaturesJSON {
     //WARNINIG! HC OUTPUT CURRENTLY OVERWRITEN BY LC OUTPUT (ORE VICE-VERSA)
 
   output:
-    file "*.json"
+    file "*.json" into featuresJSON
 
   script:
     tag=getTagFromMeta(meta)
@@ -318,20 +318,20 @@ process generateFeaturesJSON {
 }
 
 
-//REPEAT INPUT FOR EACH SUBGENOME 
-localPepSeqs4AliasesRep = Channel.create()
-localPepSeqs4Aliases.subscribe onNext: {
-  // println it[0]
-  if(it[0].containsKey("subgenomes")) {
-    for(subgenome in it[0].subgenomes) {
-      clone = it[0].clone()
-      clone.subgenome = subgenome
-      localPepSeqs4AliasesRep << [clone,it[1]]
-    }
-  } else {
-    localPepSeqs4AliasesRep << it
-  }
-}, onComplete: { localPepSeqs4Aliases.close(); localPepSeqs4AliasesRep.close() }
+// //REPEAT INPUT FOR EACH SUBGENOME 
+// localPepSeqs4AliasesRep = Channel.create()
+// localPepSeqs4Aliases.subscribe onNext: {
+//   // println it[0]
+//   if(it[0].containsKey("subgenomes")) {
+//     for(subgenome in it[0].subgenomes) {
+//       clone = it[0].clone()
+//       clone.subgenome = subgenome
+//       localPepSeqs4AliasesRep << [clone,it[1]]
+//     }
+//   } else {
+//     localPepSeqs4AliasesRep << it
+//   }
+// }, onComplete: { localPepSeqs4Aliases.close(); localPepSeqs4AliasesRep.close() }
 
 
 // localPepSeqs4AliasesFeedback = Channel.create()
@@ -394,49 +394,50 @@ localPepSeqs4Aliases.subscribe onNext: {
 //    .println()
 
 
-process splitPepSeqsPerSubGenome {
-  tag{tag}
-  echo true
+// process splitPepSeqsPerSubGenome {
+//   tag{tag}
+//   echo true
 
-  input:
-    set val(meta), file(pep) from localPepSeqs4AliasesRep
+//   input:
+//     set val(meta), file(pep) from localPepSeqs4AliasesRep
     
-  output: //optional true to account for empty files produced during trial runs, e.g. no peps for subgenomes B, D but A only
-    set val(meta), file("${tag}.pep") into localPepSeqs4AliasesRepSplit1, localPepSeqs4AliasesRepSplit2 
-  //   // set val(map), file(pep) optional true into localPepSeqs4AliasesNoSubgenomes
+//   output: //optional true to account for empty files produced during trial runs, e.g. no peps for subgenomes B, D but A only
+//     set val(meta), file("${tag}.pep") into localPepSeqs4AliasesRepSplit1, localPepSeqs4AliasesRepSplit2 
+//   //   // set val(map), file(pep) optional true into localPepSeqs4AliasesNoSubgenomes
 
-  script:    
-    tag=getUniqId(meta) //getTagFromMeta(meta)+(meta.containsKey("subgenome") ? "_"+meta.subgenome : "")
-    if(meta.containsKey("subgenome") && meta.subgenomes.size() > 1)  {
-       """
-       awk '{
-        if(\$1 ~ /^>/) {
-          split(\$3,arr,":");
-          if(arr[3] ~ /${meta.subgenome}\$/) {
-            current=1; print
-          } else {
-            current=0
-          }
-        } else if(current) {
-          print
-        }
-      }' pep > ${tag}.pep
-      """
-    } else {
-      """
-      cp --preserve=links pep ${tag}.pep
-      """
-    }
+//   script:    
+//     tag=getUniqId(meta) //getTagFromMeta(meta)+(meta.containsKey("subgenome") ? "_"+meta.subgenome : "")
+//     if(meta.containsKey("subgenome") && meta.subgenomes.size() > 1)  {
+//        """
+//        awk '{
+//         if(\$1 ~ /^>/) {
+//           split(\$3,arr,":");
+//           if(arr[3] ~ /${meta.subgenome}\$/) {
+//             current=1; print
+//           } else {
+//             current=0
+//           }
+//         } else if(current) {
+//           print
+//         }
+//       }' pep > ${tag}.pep
+//       """
+//     } else {
+//       """
+//       cp --preserve=links pep ${tag}.pep
+//       """
+//     }
   
-  //   //>TRIDC1AG000070.2 pep chromosome:WEWseq_PGSB_20160501:chr1A:409955:411146 gene:TRIDC1AG000070
+//   //   //>TRIDC1AG000070.2 pep chromosome:WEWseq_PGSB_20160501:chr1A:409955:411146 gene:TRIDC1AG000070
 
-}
+// }
 
 
 
 //COMBINE AND FILTER DUPLICATED CHANNEL TO ALLOW ALL VS ALL DATASETS COMPARISONS
-remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.mix(localPepSeqs4AliasesRepSplit1).combine(remotePepSeqs4Aliases2.mix(localPepSeqs4AliasesRepSplit2))
-  .filter { getUniqId(it[0]) < getUniqId(it[2])  }  //[species,version,file.pep]
+// remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.mix(localPepSeqs4AliasesRepSplit1).combine(remotePepSeqs4Aliases2.mix(localPepSeqs4AliasesRepSplit2))
+remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.mix(localPepSeqs4Aliases1).combine(remotePepSeqs4Aliases2.mix(localPepSeqs4Aliases2))
+  .filter { getUniqId(it[0]) <= getUniqId(it[2])  }  //[species,version,file.pep]
 
   // remotePepSeqs4AliasesCombined.subscribe {println (getUniqId(it[0])+" "+getUniqId(it[2])) }
 
@@ -459,10 +460,10 @@ process pairProteins {
   errorStrategy 'ignore'
 
   input:
-    set val(metaA), file(pepA), val(metaB), file(pepB) from remotePepSeqs4AliasesCombined
+    set val(metaA), file('pepA'), val(metaB), file('pepB') from remotePepSeqs4AliasesCombined
 
   output:
-     set val(metaA), val(metaB), file("*.tsv") into pairedProteins
+     set val(metaA), val(metaB), file("*.tsv"), file(idlines) into pairedProteins
 
   // when:
   //   !pepA.isEmpty() && !pepB.isEmpty()
@@ -478,28 +479,44 @@ process pairProteins {
     meta = ["query": getTagFromMeta(metaA), "target": getTagFromMeta(metaB)]
     basename=getUniqId(metaA)+"_VS_"+getUniqId(metaB)
     // labtag=metaA.toString()+" VS "+metaB.toString()
+    //TODO: EXPOSE PARAMS?
+
+
     """
     mmseqs easy-search ${pepA} ${pepB} ${basename}.tsv \${TMPDIR:-/tmp}/${basename} \
-    --format-mode 2 --greedy-best-hits --threads ${task.cpus} -v 1
+    --format-mode 2 \
+    -c ${params.minCoverage} \
+    --min-seq-id ${params.minIdentity} \
+    --threads ${task.cpus} -v 1 \
+    && grep --no-filename '^>' ${pepA} ${pepB} | sed 's/^>//' > idlines     
     """
+
+
     //'qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen'
 }
 
 // //  remotePepSeqs4Aliases1.combine(remotePepSeqs4Aliases2).filter { it[0] != it [3]  && it[0]+it[1] < it[3]+it[4]} .subscribe { println  "NOPE: $it" }
+
+
+
+// import static groovy.json.JsonOutput.*  
 
 /*
 * Generate JSON aliases linking features between chromosomes/genomes
 */
 process generateAliasesJSON {
   tag{basename}
+  label 'json'
+  errorStrategy 'ignore'
 
   input:
-    set(val(metaA), val(metaB), file(paired)) from pairedProteins
+    set(val(metaA), val(metaB), file(paired), file(idlines)) from pairedProteins
 
   output:
     set val(outtag), file("${basename}_aliases.json") into aliasesJSON
 
-  script:    
+  script:  
+    // println(prettyPrint(toJson(metaA)))
     tag1=getTagFromMeta(metaA)
     tag2=getTagFromMeta(metaB)
     basename=getUniqId(metaA)+"_VS_"+getUniqId(metaB)
@@ -507,7 +524,8 @@ process generateAliasesJSON {
     namespace1=tag1+":"+tag1+"_annotation"
     namespace2=tag2+":"+tag2+"_annotation"
     """
-    blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} ${paired} \
+    excludeSameChromosome.awk -vtag1=${tag1} -vtag2=${tag2} ${idlines} ${paired} \
+    | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} \
     | python -mjson.tool > ${basename}_aliases.json
     """
 }
@@ -515,30 +533,30 @@ process generateAliasesJSON {
 
 
 
-process mergeAliasesJSON {  
-  label 'json'
-  tag{out}
+// process mergeAliasesJSON {  
+//   label 'json'
+//   tag{out}
 
-  input:
-    val tuple from aliasesJSON.groupTuple() //basename followed by a list of one or more *_alisaes.json file names
+//   input:
+//     val tuple from aliasesJSON.groupTuple() //basename followed by a list of one or more *_alisaes.json file names
 
-  output:
-    file "*"
+//   output:
+//     file "*"
   
-  script:
-    out=tuple[0]
-    files=tuple[1].join(" ") 
-    if(tuple[1].size() < 2) {
-      """
-      cp --preserve=links ${files} ${out}_aliases.json
-      """
-    } else {
-      """    
-      echo "[" > ${out}_aliases.json    
-      for f in ${files}; do
-        sed '1d;\$d' \${f} | sed 's/}\$/},/' 
-      done | sed '\$d' >> ${out}_aliases.json
-      echo -e "    }\n]" >> ${out}_aliases.json
-      """
-    }
-}
+//   script:
+//     out=tuple[0]
+//     files=tuple[1].join(" ") 
+//     if(tuple[1].size() < 2) {
+//       """
+//       cp --preserve=links ${files} ${out}_aliases.json
+//       """
+//     } else {
+//       """    
+//       echo "[" > ${out}_aliases.json    
+//       for f in ${files}; do
+//         sed '1d;\$d' \${f} | sed 's/}\$/},/' 
+//       done | sed '\$d' >> ${out}_aliases.json
+//       echo -e "    }\n]" >> ${out}_aliases.json
+//       """
+//     }
+// }
