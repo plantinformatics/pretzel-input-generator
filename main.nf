@@ -333,25 +333,44 @@ localPepSeqs4Aliases.subscribe onNext: {
   }
 }, onComplete: { localPepSeqs4Aliases.close(); localPepSeqs4AliasesRep.close() }
 
-// process repeatPolyPeps{
-  
-//   input:  
-//     set val(map), file(pep) from localPepSeqs4Aliases
-//   output:
-//     set val(clone), file(outpep) into localPepSeqs4AliasesRep
 
-//   exec:
-//   if(map.containsKey("subgenomes")) {
-//       for(subgenome in map.subgenomes) {
-//         clone = map.clone()
-//         clone.subgenome = subgenome
-//         outpep = pep
-//         // localPepSeqs4AliasesRep << [clone,it[1]]
-//       }
+// localPepSeqs4AliasesFeedback = Channel.create()
+// localPepSeqs4AliasesFeedbackLoop = localPepSeqs4AliasesFeedback.filter { it[0].containsKey("subgenome") }
+
+// process repeatPolyPeps{
+//   echo true 
+
+//   input:  
+//     set val(meta), file(pep) from localPepSeqs4Aliases.mix(localPepSeqs4AliasesFeedbackLoop)
+//   output:
+//     set val(clonemeta), file(outpep) into localPepSeqs4AliasesRep
+//     set val(repmeta), file(repep) into localPepSeqs4AliasesFeedback
+
+//   // when:
+//   //   !meta.containsKey("final")  
+
+//   script:
+//     // if(meta.containsKey("subgenomes")) {  
+//     //   i = meta.containsKey("subgenome") ? meta.subgenomes.findIndexOf{it == meta.subgenome} : 0    
+//     //   if(++i < meta.subgenomes.size()) {        
+//     //     println (i+" "+meta.subgenomes[i])
+//     //     clonemeta = meta.clone()
+//     //     clonemeta.subgenome = meta.subgenomes[i]
+//     //     repmeta = clonemeta.clone()
+//     //     outpep = pep
+//     //     repep = pep      
+//     //   }
 //     // } else {
-//     //   localPepSeqs4AliasesRep << it
+//       clonemeta = meta
+//       outpep = pep
+//       repmeta = meta    
+//       repmeta.final = true
+//       repep = pep
 //     // }
-//   }
+//     """
+//     ls -lth
+//     """
+//   // }
 // }
 
 // Y = Channel.create()
