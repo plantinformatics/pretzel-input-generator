@@ -16,7 +16,7 @@ TOKEN="your-token-string-here"
 time for F in *_genome.json; do 
   curl -X POST --header 'Content-Type: application/json' \
   --header 'Accept: application/json' -d @${F} \
-  http://localhost:3000/api/Datasets/createComplete?access_token=${TOKEN} 
+  "http://localhost:3000/api/Datasets/createComplete?access_token=${TOKEN}"
 done
 ```
 
@@ -26,7 +26,7 @@ done
 time for F in *_annotation.json; do 
   curl -X POST --header 'Content-Type: application/json' \
   --header 'Accept: application/json' -d @${F} \
-  http://localhost:3000/api/Datasets/createComplete?access_token=${TOKEN}
+  "http://localhost:3000/api/Datasets/createComplete?access_token=${TOKEN}"
 done
 ```
 
@@ -37,6 +37,6 @@ done
 for F in *_aliases.json; do 
   curl -X POST --header 'Content-Type: application/json' \
   --header 'Accept: application/json' -d @${F} \
-  http://localhost:3000/api/Aliases/bulkCreate?access_token=${TOKEN}
+  "http://localhost:3000/api/Aliases/bulkCreate?access_token=${TOKEN}"
 done 
 ```
