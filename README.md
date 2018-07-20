@@ -26,7 +26,7 @@ The pipeline pulls data from [Ensembl plants](https://plants.ensembl.org), inclu
 For each of the datsets the pipeline downloads:
 
 * genome assembly index file 
-* matching protein sequences 
+* protein sequences 
 
 ### Local
 
