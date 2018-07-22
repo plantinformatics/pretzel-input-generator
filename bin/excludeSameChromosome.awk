@@ -3,7 +3,7 @@
 BEGIN {
   OFS="\t";
 }
-NR==FNR && $1 ~ /^>/ && $3 ~/^chromosome/ {
+NR==FNR && $3 ~/^chromosome/ {
   #gsub("^>","",$1)
   split($3,location,":");
   idmap[$1]=location[3];
