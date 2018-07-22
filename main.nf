@@ -525,8 +525,8 @@ process generateAliasesJSON {
     namespace2=tag2+":"+tag2+"_annotation"
     """
     excludeSameChromosome.awk -vtag1=${tag1} -vtag2=${tag2} ${idlines} ${paired} \
-    | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} \
-    | python -mjson.tool > ${basename}_aliases.json
+    | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} > ${basename}_aliases.json
+    # python -mjson.tool > ${basename}_aliases.json
     """
 }
 
