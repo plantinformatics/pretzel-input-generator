@@ -436,7 +436,7 @@ process generateFeaturesJSON {
 
 //COMBINE AND FILTER DUPLICATED CHANNEL TO ALLOW ALL VS ALL DATASETS COMPARISONS
 // remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.mix(localPepSeqs4AliasesRepSplit1).combine(remotePepSeqs4Aliases2.mix(localPepSeqs4AliasesRepSplit2))
-remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.mix(localPepSeqs4Aliases1).combine(remotePepSeqs4Aliases2.mix(localPepSeqs4Aliases2))
+pepSeqs4AliasesCombined = remotePepSeqs4Aliases1.mix(localPepSeqs4Aliases1).combine(remotePepSeqs4Aliases2.mix(localPepSeqs4Aliases2))
   .filter { getUniqId(it[0]) <= getUniqId(it[2])  }  //[species,version,file.pep]
 
   // remotePepSeqs4AliasesCombined.subscribe {println (getUniqId(it[0])+" "+getUniqId(it[2])) }
@@ -460,7 +460,7 @@ process pairProteins {
   errorStrategy 'ignore'
 
   input:
-    set val(metaA), file('pepA'), val(metaB), file('pepB') from remotePepSeqs4AliasesCombined
+    set val(metaA), file('pepA'), val(metaB), file('pepB') from pepSeqs4AliasesCombined
 
   output:
      set val(metaA), val(metaB), file("*.tsv"), file(idlines) into pairedProteins
@@ -479,10 +479,9 @@ process pairProteins {
     meta = ["query": getTagFromMeta(metaA), "target": getTagFromMeta(metaB)]
     basename=getUniqId(metaA)+"_VS_"+getUniqId(metaB)
     // labtag=metaA.toString()+" VS "+metaB.toString()
-    //TODO: EXPOSE PARAMS?
+    //TODO: EXPOSE PARAMS?    
 
-
-    """
+    """    
     mmseqs easy-search ${pepA} ${pepB} ${basename}.tsv \${TMPDIR:-/tmp}/${basename} \
     --format-mode 2 \
     -c ${params.minCoverage} \
@@ -522,10 +521,10 @@ process generateAliasesJSON {
     basename=getUniqId(metaA)+"_VS_"+getUniqId(metaB)
     outtag=tag1+"_VS_"+tag2
     namespace1=tag1+":"+tag1+"_annotation"
-    namespace2=tag2+":"+tag2+"_annotation"
+    namespace2=tag2+":"+tag2+"_annotation"    
+    cmd = tag1 != tag2 ? "cat ${paired} " : "excludeSameChromosome.awk -vtag1=${tag1} -vtag2=${tag2} ${idlines} ${paired}"
     """
-    excludeSameChromosome.awk -vtag1=${tag1} -vtag2=${tag2} ${idlines} ${paired} \
-    | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} > ${basename}_aliases.json
+    ${cmd} | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} > ${basename}_aliases.json
     # python -mjson.tool > ${basename}_aliases.json
     """
 }
