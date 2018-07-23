@@ -13,7 +13,7 @@ TOKEN="your-token-string-here"
 ## Upload dataset (genome) definitions
 
 ```
-time for F in *_genome.json; do 
+for F in *_genome.json; do 
   curl -X POST --header 'Content-Type: application/json' \
   --header 'Accept: application/json' -d @${F} \
   "http://localhost:3000/api/Datasets/createComplete?access_token=${TOKEN}"
@@ -23,7 +23,7 @@ done
 ## Upload features (genes) definitions
 
 ```
-time for F in *_annotation.json; do 
+for F in *_annotation.json; do 
   curl -X POST --header 'Content-Type: application/json' \
   --header 'Accept: application/json' -d @${F} \
   "http://localhost:3000/api/Datasets/createComplete?access_token=${TOKEN}"
