@@ -540,30 +540,31 @@ process generateAliasesJSON {
 
 
 
-// process mergeAliasesJSON {  
-//   label 'json'
-//   tag{out}
+process mergeAliasesJSON {  
+  label 'json'
+  tag{out}
 
-//   input:
-//     val tuple from aliasesJSON.groupTuple() //basename followed by a list of one or more *_alisaes.json file names
+  input:
+    val tuple from aliasesJSON.groupTuple() //basename followed by a list of one or more *_alisaes.json file names
 
-//   output:
-//     file "*"
+  output:
+    file "*"
   
-//   script:
-//     out=tuple[0]
-//     files=tuple[1].join(" ") 
-//     if(tuple[1].size() < 2) {
-//       """
-//       cp --preserve=links ${files} ${out}_aliases.json
-//       """
-//     } else {
-//       """    
-//       echo "[" > ${out}_aliases.json    
-//       for f in ${files}; do
-//         sed '1d;\$d' \${f} | sed 's/}\$/},/' 
-//       done | sed '\$d' >> ${out}_aliases.json
-//       echo -e "    }\n]" >> ${out}_aliases.json
-//       """
-//     }
-// }
+  script:
+    out=tuple[0]
+    files=tuple[1].join(" ") 
+    println(tuple)
+    if(tuple[1].size() < 2) {
+      """
+      cp --preserve=links ${files} ${out}_aliases.json
+      """
+    } else {
+      """    
+      echo "[" > ${out}_aliases.json    
+      for f in ${files}; do
+        sed '1d;\$d' \${f} | sed 's/}\$/},/' 
+      done | sed '\$d' >> ${out}_aliases.json
+      echo -e "    }\n]" >> ${out}_aliases.json
+      """
+    }
+}
