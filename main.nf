@@ -530,7 +530,9 @@ process generateAliasesJSON {
     namespace2=tag2+":"+tag2+"_annotation"    
     cmd = tag1 != tag2 ? "cat ${paired} " : "excludeSameChromosome.awk -vtag1=${tag1} -vtag2=${tag2} ${idlines} ${paired}"
     """    
-    ${cmd} | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} > ${basename}_aliases.json
+    #at least one of the aligned pair must meet the minCoverageFilter threshold
+    ${cmd} | awk '\$3 >= ${params.minIdentityFilter} && ((\$8-\$7+1)/\$13 >= ${params.minCoverageFilter} || (\$10-\$9+1)/\$14 >= ${params.minCoverageFilter})' \
+    | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} > ${basename}_aliases.json
     # python -mjson.tool > ${basename}_aliases.json
     """
 }
