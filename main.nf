@@ -179,6 +179,9 @@ process generateGenomeBlocksJSON {
     if("${meta.source}" != "null") {
       genome.meta << ["source" : "${meta.source}"]
     }
+    if("${meta.release}" != "null") {
+      genome.meta << ["release" : "${meta.release}"]
+    }
     if("${meta.citation}" != "null") {
       genome.meta << ["citation" : "${meta.citation}"]
     }
@@ -281,6 +284,9 @@ process generateFeaturesJSON {
     annotation.meta = [:]
     if("${meta.source}" != "null") {
       annotation.meta << ["source" : "${meta.source}"]
+    }
+    if("${meta.release}" != "null") {
+      annotation.meta << ["release" : "${meta.release}"]
     }
     if("${meta.citation}" != "null") {
       annotation.meta << ["citation" : "${meta.citation}"]
@@ -481,7 +487,7 @@ process pairProteins {
     // labtag=metaA.toString()+" VS "+metaB.toString()
     //TODO: EXPOSE PARAMS?    
 
-    """    
+    """
     mmseqs easy-search ${pepA} ${pepB} ${basename}.tsv \${TMPDIR:-/tmp}/${basename} \
     --format-mode 2 \
     -c ${params.minCoverage} \
@@ -523,7 +529,7 @@ process generateAliasesJSON {
     namespace1=tag1+":"+tag1+"_annotation"
     namespace2=tag2+":"+tag2+"_annotation"    
     cmd = tag1 != tag2 ? "cat ${paired} " : "excludeSameChromosome.awk -vtag1=${tag1} -vtag2=${tag2} ${idlines} ${paired}"
-    """
+    """    
     ${cmd} | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} > ${basename}_aliases.json
     # python -mjson.tool > ${basename}_aliases.json
     """
