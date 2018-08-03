@@ -323,7 +323,7 @@ process pairProteins {
 process generateAliasesJSON {
   tag{basename}
   label 'json'
-  errorStrategy 'ignore'  //expecting exit status 2 if no aliases generated
+  errorStrategy 'ignore'  //expecting exit status 3 if no aliases generated
   echo 'true'
 
   input:
@@ -347,7 +347,7 @@ process generateAliasesJSON {
     #at least one of the aligned pair must meet the minCoverageFilter threshold
     ${cmd} | awk '\$3 >= ${params.minIdentityFilter} && ((\$8-\$7+1)/\$13 >= ${params.minCoverageFilter} || (\$10-\$9+1)/\$14 >= ${params.minCoverageFilter})' \
     | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} > ${basename}_aliases.json
-    head ${basename}_aliases.json  | grep '[a-Z0-9]' > /dev/null || (echo "No aliases generated for ${basename}" && exit 2)
+    head ${basename}_aliases.json  | grep '[a-Z0-9]' > /dev/null || (echo "No aliases generated for ${basename}" && exit 3)
     """
 }
 
