@@ -5,17 +5,35 @@
 trialLines = params.trialLines
 eprelease = params.eprelease
 
-//LIST ELEMS ASSUMED TO MATCH
-assemblySpeciesList = params.assemblySpecies.tokenize(",")
-assemblyVersionList = params.assemblyVersion.tokenize(",")
+import static groovy.json.JsonOutput.*
 
-//STATIC(?)
+def helpMessage() {
+  log.info"""
+  =============================================================
+  plantinformatics/pretzel-input-generator  ~  version ${params.version}
+  =============================================================
+  Usage:
+
+  nextflow run plantinformatics/pretzel-input-generator
+
+  Default params:
+  """.stripIndent()
+  println(prettyPrint(toJson(params)))
+}
+
+// Show help message
+params.help = false
+if (params.help){
+    helpMessage()
+    exit 0
+}
+
+//STATIC(?) ENSEMBL URLs
 urlprefix = params.urlprefix
 pepsuffix = params.pepsuffix
 idxsuffix = params.idxsuffix
 
-
-//ARRANGE INPUTS FOR PROCESSES
+//LOCAL INPUTS
 localInputGtfGff3Pep = Channel.create()
 localIndices = Channel.create()
 if(params.localAssembly != "NA") {
@@ -77,15 +95,14 @@ process fetchRemoteDataFromEnsemblPlants {
   label 'download'
 
   input:
-    val species from assemblySpeciesList
-    val version from assemblyVersionList
+    set val(species), val(version), val(shortName) from Channel.from(params.remoteAssembly)
 
   output:
     set val(meta), file("${basename}.idx") into remoteIndices
     set val(meta), file("${basename}.pep") into remotePepSeqs
 
   script:
-    meta=["species":species, "version":version, "source": "https://plants.ensembl.org/"+species, "release": params.eprelease]
+    meta=["species":species, "version":version, "source": "https://plants.ensembl.org/"+species, "release": params.eprelease, "shortName": shortName]
     basename=getDatasetTagFromMeta(meta)
     idxurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/dna_index/"+species+"."+version+idxsuffix
     pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
@@ -127,6 +144,9 @@ process generateGenomeBlocksJSON {
     def genome = [:]
     genome.name = "${tag}"
     genome.meta = [:]
+    if("${meta.shortName}" != "null") {
+      genome.meta << ["shortName" : "${meta.shortName}"]
+    }
     if("${meta.source}" != "null") {
       genome.meta << ["source" : "${meta.source}"]
     }
@@ -215,8 +235,11 @@ process generateFeaturesJSON {
     file "*.json" into featuresJSON
 
   script:
+
     tag=getAnnotationTagFromMeta(meta)
     genome=getDatasetTagFromMeta(meta)
+    shortName = (meta.containsKey("shortName") ? meta.shortName : "")
+    shortName +=(meta.containsKey("annotation") ? "_"+meta.annotation : "") //only for cases where multiple annotations per genome
     """
     #!/usr/bin/env groovy
 
@@ -225,6 +248,9 @@ process generateFeaturesJSON {
     out = new File('${tag}_annotation.json')
     def annotation = [:]
     annotation.meta = [:]
+    if("${meta.shortName}" != "null") {
+      annotation.meta << ["shortName" : "${shortName}"]
+    }
     if("${meta.source}" != "null") {
       annotation.meta << ["source" : "${meta.source}"]
     }
