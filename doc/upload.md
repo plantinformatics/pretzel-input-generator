@@ -48,5 +48,3 @@ If there are too many aliases for your isntance of pretzel to handle, leading to
 * reduce the number of aliases by incresing [filtering stringency in your conf/input.config](https://github.com/plantinformatics/pretzel-input-generator/blob/d4e7c88776c5f9c4ab6f9d50adcf49bd36cf6f81/conf/input.config#L4-L9)
 * split your alias file and upload in chunks
 * re-run `node` with more memory, e.g. (`--max-old-space-size=8192`).
-
-of whatever MB ram the machine has
