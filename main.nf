@@ -33,28 +33,31 @@ urlprefix = params.urlprefix
 pepsuffix = params.pepsuffix
 idxsuffix = params.idxsuffix
 
+// def noKeyOrIsMap
+
 //LOCAL INPUTS
-localInputGtfGff3Pep = Channel.create()
+localInput = Channel.create()
 localIndices = Channel.create()
 if(params.localAssembly != "NA") {
   params.localAssembly.each {
-    // println(it.pep)
-    //EXPECT TO HAVE SOME DATASETS WITH gtf, other with gff3 instead.
-    for (key in ["gtf","gff3"]) {
-      if(it.containsKey(key)) {
-        //IF MORE THAN ONE ANNOTATION PER GENOME
-        if(it.pep instanceof Map && it.get(key) instanceof Map) {
-          it.pep.each {id, pep ->
-            clone = it.clone()
-            clone.annotation = id
-            localInputGtfGff3Pep << [clone,file(it.get(key).get(id)),file(pep)]
-          }
-        } else if (!(it.pep instanceof Map) && !(it.get(key) instanceof Map)){
-          localInputGtfGff3Pep << [it,file(it.get(key)),file(it.pep)]
-        } else {
-          exitOnInputMismatch(it)
-        }
+    // println(prettyPrint(toJson(it)))
+    // for (key in ["gtf","gff3"]) {
+    key = 'gtfgff3'
+    // if(it.containsKey(key)) {
+    //IF MORE THAN ONE ANNOTATION PER GENOME
+    if(it.pep instanceof Map) { // && it.containsKey(key) && it.get(key) instanceof Map) {
+      it.pep.each {id, pep ->
+      // println(id+" -> "+pep)
+        clone = it.clone()
+        clone.annotation = id
+        gtfgff3 = it.containsKey(key) ? file(it.get(key).get(id)) : null
+          localInput << [clone,gtfgff3,file(pep)]
       }
+    } else { //if (!(it.pep instanceof Map) && !(it.get(key) instanceof Map)){
+      gtfgff3 = it.containsKey(key) ? file(it.get(key)) : null
+        localInput << [it,gtfgff3,file(it.pep)]
+      // } else {
+      //   exitOnInputMismatch(it)
     }
     //ALL SHOULD HAVE AN INDEX
     if(it.containsKey("idx")) {
@@ -62,16 +65,17 @@ if(params.localAssembly != "NA") {
     }
   }
 }
-localInputGtfGff3Pep.close()
+localInput.close()
 localIndices.close()
 
-def exitOnInputMismatch(data) {
-  println("Malformed input. Expecting number of pep and gtf/gff3 inputs to match for a data set.")
-  println("Offending data set: ")
-  println(data)
-  println("Terminating.")
-  System.exit(1)
-}
+// def exitOnInputMismatch(data) {
+//   println("Malformed input. Expecting number of pep and gtf/gff3 inputs to match for a data set.")
+//   println("Offending data set: ")
+//   println(data)
+//   println("Terminating.")
+//   System.exit(1)
+// }
+
 
 /*
   Generic method for extracting a string tag or a file basename from a metadata map
@@ -179,23 +183,31 @@ process convertReprFasta2EnsemblPep {
   label 'fastx'
 
   input:
-    set (val(meta), file(gtfgff3), file(reprPep)) from localInputGtfGff3Pep
+    //val arr from localInput
+    set (val(meta), file(gtfgff3), file(reprPep)) from localInput
 
   output:
     set val(meta), file(pep) into localPepSeqs4Features, localPepSeqs4Aliases1, localPepSeqs4Aliases2
+
   script:
     tag=getAnnotationTagFromMeta(meta)
     //TRIAL RUN? ONLY TAKE FIRST n LINES
     cmd = trialLines != null ? "head -n ${trialLines}" : "cat"
-    //cmd = "cat"
-    if(meta.containsKey("gtf")) {
-      """
-      ${cmd} ${reprPep} |  fasta_formatter | gtfAndRepr2ensembl_pep.awk -vversion="${meta.version}" - ${gtfgff3} > pep
-      """
-    } else if(meta.containsKey("gff3")) {
-      """
-      ${cmd} ${reprPep} | fasta_formatter | gff3AndRepr2ensembl_pep.awk -vversion="${meta.version}"  - ${gtfgff3} > pep
-      """
+    if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gtf\$")) {
+      // println("MATCHED gtf: "+gtfgff3)
+        """
+        ${cmd} ${reprPep} |  fasta_formatter | gtfAndRepr2ensembl_pep.awk -vversion="${meta.version}" - ${gtfgff3} > pep
+        """
+    } else if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gff(3)?\$")) { //if(meta.containsKey("gff3")) {
+      // println("MATCHED gff3: "+gtfgff3)
+        """
+        ${cmd} ${reprPep} | fasta_formatter | gff3AndRepr2ensembl_pep.awk -vversion="${meta.version}"  - ${gtfgff3} > pep
+        """
+    } else { //ASSUMING ENSEMBL PLANTS-LIKE FORMATTED PEPTIDE FASTA
+      // println("NOT MATCHED gtfgff3: "+gtfgff3)
+        """
+        cp --no-dereference ${reprPep} pep
+        """
     }
 }
 
@@ -238,7 +250,7 @@ process generateFeaturesJSON {
 
     tag=getAnnotationTagFromMeta(meta)
     genome=getDatasetTagFromMeta(meta)
-    shortName = (meta.containsKey("shortName") ? meta.shortName : "")
+    shortName = (meta.containsKey("shortName") ? meta.shortName+"_genes" : "")
     shortName +=(meta.containsKey("annotation") ? "_"+meta.annotation : "") //only for cases where multiple annotations per genome
     """
     #!/usr/bin/env groovy
