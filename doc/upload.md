@@ -13,7 +13,7 @@ TOKEN="your-token-string-here"
 Point to your instance of pretzel
 
 ```
-SRV="https://localhost:3000"
+SRV="http://localhost:3000"
 ```
 
 ## Upload dataset (genome) definitions
@@ -39,7 +39,8 @@ done
 ## Upload aliases (compressed)
 
 ```
-for F in *_aliases.json.gz; do
+for F in *_aliases.json.gz; do 
+  echo -ne "\n${F}\t"
   curl -X POST --header 'Content-Type: application/json'   \
   --header 'Accept: application/json' -H'Content-Encoding: gzip' \
   --data-binary @${F}   \
