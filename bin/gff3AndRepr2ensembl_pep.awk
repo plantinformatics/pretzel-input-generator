@@ -27,10 +27,11 @@ NR!=FNR {
         gsub(/\.[0-9]++/,"",gene);
       }
     }
-    if(transcript in repr) {
+    if(transcript in repr && !gene in printed) {
       #IGNORECASE=1;
       gsub(/chr_?/,"",$1);
       #IGNORECASE=0;
+      printed[gene]=1;
       print ">"transcript" pep chromosome:"version":"$1":"$4":"$5" gene:"gene"\n"repr[transcript];
     }
   }
