@@ -40,9 +40,6 @@ localInput = Channel.create()
 localIndices = Channel.create()
 if(params.localAssembly != "NA") {
   params.localAssembly.each {
-    //ENFORCE NO WHITE SPACES IN STRINGS USED FOR FILENAMES:
-    it.species = (it.species).replaceAll(" ","_")
-    it.version = (it.version).replaceAll(" ","_")
     // println(prettyPrint(toJson(it)))
     // for (key in ["gtf","gff3"]) {
     key = 'gtfgff3'
