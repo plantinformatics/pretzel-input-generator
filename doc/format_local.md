@@ -47,17 +47,17 @@ NR!=FNR {
   gsub(">","");
   gsub(/\.P[0-9]+/,"",$1);
   if($1 in high) {
-    print ">"$1" HC",$2 > "WheatTu.pros.long.HC.fasta"
+    print ">"$1,$2 > "WheatTu.pros.long.HC.fasta"
   } else if($1 in low) {
-    print ">"$1" LC",$2 > "WheatTu.pros.long.LC.fasta"
+    print ">"$1,$2 > "WheatTu.pros.long.LC.fasta"
   } else {
     print "Error, expected each gene to be either High or Low confidence!\n"$0; exit 1;
   }
 }' WheatTu.gene.evidence <(paste - - < WheatTu.pros.long.fasta)
 ```
 
-Fix chromosome names in gff, exclude unplaced scaffolds/contigs
+Fix chromosome names in gff, exclude unplaced scaffolds/contigs, remove `.T??` suffixes from gene/transcript name
 
 ```
-grep -E '^Tu[1-7]' WheatTu.gene.gff |sed -E 's/^(Tu)([1-7])/\2A/' > WheatTu.gene_mod.gff
+grep -E '^Tu[1-7]' WheatTu.gene.gff | sed -E -e 's/^(Tu)([1-7])/\2A/' -e 's/\.T[0-9]+//g' > WheatTu.gene_mod.gff
 ```
