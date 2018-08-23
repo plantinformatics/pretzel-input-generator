@@ -27,7 +27,7 @@ NR!=FNR {
         gsub(/\.[0-9]++/,"",gene);
       }
     }
-    if(transcript in repr && !gene in printed) {
+    if(transcript in repr && !(gene in printed)) {
       #IGNORECASE=1;
       gsub(/chr_?/,"",$1);
       #IGNORECASE=0;
