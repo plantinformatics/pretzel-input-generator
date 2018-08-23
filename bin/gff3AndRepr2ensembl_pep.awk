@@ -16,21 +16,22 @@ NR==FNR {
 
 NR!=FNR {
   if($3 =="mRNA") {
-    gsub("\"","");    
-    split($9,arr,";| "); 
+    gsub("\"","");
+    split($9,arr,";| ");
     for(i in arr) {
-      split(arr[i], pair, "=");      
+      split(arr[i], pair, "=");
       if(pair[1]=="ID") {
         transcript=pair[2];
       } else if(pair[1]=="Parent") {
         gene=pair[2];
+        gsub(/\.[0-9]++/,"",gene);
       }
     }
-    if(transcript in repr) { 
+    if(transcript in repr) {
       #IGNORECASE=1;
       gsub(/chr_?/,"",$1);
       #IGNORECASE=0;
-      print ">"transcript" pep chromosome:"version":"$1":"$4":"$5" gene:"gene"\n"repr[transcript]; 
+      print ">"transcript" pep chromosome:"version":"$1":"$4":"$5" gene:"gene"\n"repr[transcript];
     }
   }
 }
