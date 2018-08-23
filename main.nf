@@ -40,6 +40,9 @@ localInput = Channel.create()
 localIndices = Channel.create()
 if(params.localAssembly != "NA") {
   params.localAssembly.each {
+    //ENFORCE NO WHITE SPACES IN STRINGS USED FOR FILENAMES:
+    it.species = (it.species).replaceAll(" ","_")
+    it.version = (it.version).replaceAll(" ","_")
     // println(prettyPrint(toJson(it)))
     // for (key in ["gtf","gff3"]) {
     key = 'gtfgff3'
@@ -368,7 +371,7 @@ process generateAliasesJSON {
     set(val(metaA), val(metaB), file(paired), file(idlines)) from pairedProteins
 
   output:
-    file "${basename}_aliases.json"
+    file "${basename}_aliases.json.gz"
     // set val(basename), file("${basename}_aliases.json") into aliasesJSON
 
   script:
@@ -384,8 +387,8 @@ process generateAliasesJSON {
     """
     #at least one of the aligned pair must meet the minCoverageFilter threshold
     ${cmd} | awk '\$3 >= ${params.minIdentityFilter} && ((\$8-\$7+1)/\$13 >= ${params.minCoverageFilter} || (\$10-\$9+1)/\$14 >= ${params.minCoverageFilter})' \
-    | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} > ${basename}_aliases.json
-    head ${basename}_aliases.json  | grep '[a-Z0-9]' > /dev/null || (echo "No aliases generated for ${basename}" && exit 3)
+    | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} | gzip > ${basename}_aliases.json.gz
+    zcat ${basename}_aliases.json | head | grep '[a-Z0-9]' > /dev/null || (echo "No aliases generated for ${basename}" && exit 3)
     """
 }
 

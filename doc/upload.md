@@ -2,7 +2,7 @@
 
 To upload the generated data to your instance of pretzel, you may use curl POST requests
 
-## Retrieve your authentication token from pretzel front-end and record it. 
+## Retrieve your authentication token from pretzel front-end and record it.
 
 In firefox, open menu and select *Web Developer*, *Network* then refresh, select on of the requests, and click  *Cookies*
 
@@ -10,35 +10,51 @@ In firefox, open menu and select *Web Developer*, *Network* then refresh, select
 TOKEN="your-token-string-here"
 ```
 
+Point to your instance of pretzel
+
+```
+SRV="https://localhost:3000"
+```
+
 ## Upload dataset (genome) definitions
 
 ```
-for F in *_genome.json; do 
+for F in *_genome.json; do
   curl -X POST --header 'Content-Type: application/json' \
   --header 'Accept: application/json' -d @${F} \
-  "http://localhost:3000/api/Datasets/createComplete?access_token=${TOKEN}"
+  "${SRV}/api/Datasets/createComplete?access_token=${TOKEN}"
 done
 ```
 
 ## Upload features (genes) definitions
 
 ```
-for F in *_annotation.json; do 
+for F in *_annotation.json; do
   curl -X POST --header 'Content-Type: application/json' \
   --header 'Accept: application/json' -d @${F} \
-  "http://localhost:3000/api/Datasets/createComplete?access_token=${TOKEN}"
+  "${SRV}/api/Datasets/createComplete?access_token=${TOKEN}"
 done
 ```
 
-
-## Upload aliases 
+## Upload aliases (compressed)
 
 ```
-for F in *_aliases.json; do 
+for F in *_aliases.json.gz; do
+  curl -X POST --header 'Content-Type: application/json'   \
+  --header 'Accept: application/json' -H'Content-Encoding: gzip' \
+  --data-binary @${F}   \
+  "${SRV}/api/Aliases/bulkCreate?access_token=${TOKEN}"
+done
+```
+
+## Upload aliases (plain text)
+
+```
+for F in *_aliases.json; do
   curl -X POST --header 'Content-Type: application/json' \
   --header 'Accept: application/json' -d @${F} \
-  "http://localhost:3000/api/Aliases/bulkCreate?access_token=${TOKEN}"
-done 
+  "${SRV}/api/Aliases/bulkCreate?access_token=${TOKEN}"
+done
 ```
 
 ## Troubleshooting
