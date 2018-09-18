@@ -3,6 +3,19 @@
 This is a [nextflow](https://www.nextflow.io) pipeline for generating input for [pretzel](https://github.com/plantinformatics/pretzel) from annotated and (mostly) contiguous genome assemblies.
 
 
+## Quick start
+
+Requires [nextflow](https://www.nextflow.io) and [Singularity](http://singularity.lbl.gov)
+
+```
+nextflow run plantinformatics/pretzel-input-generator \
+-revision v0.7 \
+-profile singularity --localAssembly NA 
+```
+
+This will pull and process datasets from [Ensembl plants](https://plants.ensembl.org) specified in [`conf/input.config`](conf/input.config#L17-L39)
+
+
 
 ## Input
 
@@ -68,10 +81,9 @@ Wherever possible the local assembly files are used as input for the pipeline in
 
 When using Singularity or Docker, the required containers are specified in [`conf/containers.conf`](conf/containers.config)
 
-
 ## Execution
 
-We provide several execution profiles, "locally" may mean a designated server or an interactive session on a cluster. By appending  e.g. `-revision v0.3` to your command you can specify a release tag to run a specific revision. When re-running the pipeline after errors or changes use `-resume` to ensure only the necessary processes are re-run.
+We provide several execution profiles, "locally" may mean a designated server or an interactive session on a cluster. By appending  e.g. `-revision v0.7` to your command you can specify a release tag to run a specific revision. When re-running the pipeline after errors or changes use `-resume` to ensure only the necessary processes are re-run.
 
 Run locally with docker
 
