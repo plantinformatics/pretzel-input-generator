@@ -140,7 +140,7 @@ To upload the generated data to your instance of pretzel, follow [these instruct
 
 ## Pipeline overview
 
-The pipeline requires approximately 1 cpu-day, but as many processes can run independently, the real run-time is much shorter.
+The pipeline requires approximately 1 cpu-day, but as many processes can run independently, the real run-time is much shorter if suitable compute resources are available.
 
 If `-with-dag dag.dot` is specified, nextflow outputs a DOT language representation of the pipeline, as presented below.
 
