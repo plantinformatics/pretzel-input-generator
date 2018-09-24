@@ -25,6 +25,16 @@ for F in *_genome.json; do
   "${SRV}/api/Datasets/createComplete?access_token=${TOKEN}"
 done
 ```
+## Upload features (genes) definitions (compressed)
+
+```
+for F in *_annotation.json.gz; do 
+  curl -X POST --header 'Content-Type: application/json' \
+  --header 'Accept: application/json' -H'Content-Encoding: gzip' \
+  --data-binary @${F} \
+  "${SRV}/api/Datasets/createComplete?access_token=${TOKEN}"
+done
+```
 
 ## Upload features (genes) definitions
 
