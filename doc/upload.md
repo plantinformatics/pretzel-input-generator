@@ -52,7 +52,7 @@ done
 
 If there are too many aliases for your isntance of pretzel to handle, leading to out of memory errors, there are several things which may help:
 
-* reduce the number of aliases by increasing [filtering stringency in your conf/input.config](pretzel-input-generator/conf/input.config#L4-L9)
+* reduce the number of aliases by increasing [filtering stringency in your conf/input.config](https://github.com/plantinformatics/pretzel-input-generator/blob/v1.0/conf/input.config#L4-L9)
 * split your alias file and upload in chunks
 * re-run `node` with more memory, e.g. (`--max-old-space-size=8192`).
 
