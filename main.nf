@@ -162,7 +162,7 @@ process generateGenomeBlocksJSON {
     }
     genome.blocks = []
     idx.eachLine { line ->
-      if(line.toLowerCase() =~ /^(chr|[0-9])/ ) {
+      if(line.toLowerCase() =~ /^(chr|[0-9]|x|y)/ ) {
         toks = line.split('\t')
         genome.blocks += [ "scope": toks[0].replaceFirst("^(C|c)(H|h)(R|r)[_]?",""), "featureType": "linear", "range": [1, toks[1].toInteger()] ]
       }
@@ -244,7 +244,7 @@ process generateFeaturesJSON {
     set val(meta), file(pep) from localPepSeqs4Features.mix(remotePepSeqs4Features)
 
   output:
-    file "*.json" into featuresJSON
+    file "*.json.gz" into featuresJSON
 
   script:
 
@@ -298,6 +298,7 @@ process generateFeaturesJSON {
       annotation.blocks << current
     }
     out.text = prettyPrint(toJson(annotation))
+    'gzip ${tag}_annotation.json'.execute()
     """
 }
 
