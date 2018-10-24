@@ -1,6 +1,6 @@
 #!/usr/bin/env python
 from __future__ import print_function
-import argparse, sys, os, json
+import argparse, sys, os, json, gzip
 
 def eprint(*args, **kwargs):
   print(*args, file=sys.stderr, **kwargs)
@@ -15,7 +15,11 @@ parser.add_argument('i', nargs='+', type=argparse.FileType('r'),
 args = parser.parse_args()
 
 for f in args.i:
-  jsondict = json.load(f)
+  if f.name.endswith('.gz'):
+    with gzip.GzipFile(f.name, 'r') as fin:
+      jsondict = json.loads(fin.read().decode('utf-8'))
+  else:
+    jsondict = json.load(f)
   if(args.key in jsondict):
     print(jsondict[args.key])
   else:
