@@ -24,7 +24,7 @@ Requires [nextflow](https://www.nextflow.io) and [Singularity](http://singularit
 
 ```
 nextflow run plantinformatics/pretzel-input-generator \
--revision v0.7 -profile singularity --localAssembly NA
+-revision v0.8 -profile singularity --localAssembly NA
 ```
 
 This will pull and process data sets from [Ensembl plants](https://plants.ensembl.org) specified in [`conf/input.config`](conf/input.config#L17-L39)
@@ -98,7 +98,7 @@ When using Singularity or Docker, the required containers are specified in [`con
 
 # Execution
 
-We provide several execution profiles, "locally" may mean a designated server or an interactive session on a cluster. By appending  e.g. `-revision v0.7` to your command you can specify a release tag to run a specific revision. When re-running the pipeline after errors or changes use `-resume` to ensure only the necessary processes are re-run.
+We provide several execution profiles, "locally" may mean a designated server or an interactive session on a cluster. By appending  e.g. `-revision v0.8` to your command you can specify a release tag to run a specific revision. When re-running the pipeline after errors or changes use `-resume` to ensure only the necessary processes are re-run.
 
 Run locally with docker
 
