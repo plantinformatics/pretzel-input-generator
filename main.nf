@@ -164,7 +164,7 @@ process generateGenomeBlocksJSON {
     idx.eachLine { line ->
       if(line.toLowerCase() =~ /^(chr|[0-9]|x|y)/ ) {
         toks = line.split('\t')
-        genome.blocks += [ "scope": toks[0].replaceFirst("^(C|c)(H|h)(R|r)[_]?",""), "featureType": "linear", "range": [1, toks[1].toInteger()] ]
+        genome.blocks += [ "scope": toks[0].replaceFirst("^(C|c)(H|h)(R|r)[_]?",""), "featureType": "linear", "value": [1, toks[1].toInteger()] ]
       }
     }
     out.text = prettyPrint(toJson(genome))
@@ -286,7 +286,7 @@ process generateFeaturesJSON {
         if(!scope.containsKey(key)) {
           scope << [(key) : []]
         }
-        scope[key] << ["name" : gene[1], "range" : [ location[3].toInteger(), location[4].toInteger() ]]
+        scope[key] << ["name" : gene[1], "value" : [ location[3].toInteger(), location[4].toInteger() ]]
       }
     }
     //GROUP TOGETHER FEATURES FROM/IN SAME BLOCK
