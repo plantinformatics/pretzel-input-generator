@@ -23,6 +23,7 @@ for F in *_genome.json; do
   curl -X POST --header 'Content-Type: application/json' \
   --header 'Accept: application/json' -d @${F} \
   "${SRV}/api/Datasets/createComplete?access_token=${TOKEN}"
+  echo
 done
 ```
 ## 3. Upload features (genes) definitions (compressed)
@@ -33,6 +34,7 @@ for F in *_annotation.json.gz; do
   --header 'Accept: application/json' -H'Content-Encoding: gzip' \
   --data-binary @${F} \
   "${SRV}/api/Datasets/createComplete?access_token=${TOKEN}"
+  echo
 done
 ```
 
@@ -52,7 +54,7 @@ done
 
 If there are too many aliases for your isntance of pretzel to handle, leading to out of memory errors, there are several things which may help:
 
-* reduce the number of aliases by increasing [filtering stringency in your conf/input.config](https://github.com/plantinformatics/pretzel-input-generator/blob/d4e7c88776c5f9c4ab6f9d50adcf49bd36cf6f81/conf/input.config#L4-L9)
+* reduce the number of aliases by increasing [filtering stringency in your conf/input.config](https://github.com/plantinformatics/pretzel-input-generator/blob/v1.0/conf/input.config#L4-L9)
 * split your alias file and upload in chunks
 * re-run `node` with more memory, e.g. (`--max-old-space-size=8192`).
 
