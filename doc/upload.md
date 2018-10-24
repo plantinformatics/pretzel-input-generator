@@ -4,7 +4,7 @@ To upload the generated data to your instance of pretzel, you may use curl POST 
 
 ## 1. Retrieve your authentication token from pretzel front-end and record it.
 
-In firefox, open menu and select *Web Developer*, *Network* then refresh, select one of the requests, and click  *Cookies*
+In firefox, open menu and select *Web Developer*, *Network* then refresh, select one of the requests, and click  *Cookies* to find your token string.
 
 ```
 TOKEN="your-token-string-here"

@@ -369,7 +369,7 @@ process generateAliasesJSON {
     set(val(metaA), val(metaB), file(paired), file(idlines)) from pairedProteins
 
   output:
-    file "${basename}_aliases.json.gz"
+    file "${basename}_aliases.json.gz" into aliasesJSON
     // set val(basename), file("${basename}_aliases.json") into aliasesJSON
 
   script:
