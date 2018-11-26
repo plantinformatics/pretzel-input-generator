@@ -87,7 +87,7 @@ done
 Before re-uploading of updated datasets, delete the existing ones (requires [keyFromJSON.py](https://github.com/plantinformatics/pretzel-input-generator/blob/master/bin/keyFromJSON.py) for extracting dataset names):
 
 ```
-for name in $(./keyFromJSON.py JSON/*_{annotation,genome}.json); do
+for name in $(./keyFromJSON.py JSON/*_{annotation,genome}.json*); do
   echo -ne  "\n\nTrying to delete: ${name}"
   curl -X DELETE --header 'Accept: application/json' \
   "${SRV}/api/Datasets/${name}?access_token=${TOKEN}"
