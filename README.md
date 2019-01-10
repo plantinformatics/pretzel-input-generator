@@ -1,3 +1,5 @@
+[![Latest GitHub tag](https://img.shields.io/github/tag/plantinformatics/pretzel-input-generator.svg?label=latest%20release&logo=github&style=for-the-badge)](https://github.com/plantinformatics/pretzel-input-generator/releases)
+
 # Pipeline overview
 
 `pretzel-input-generator` is a [nextflow](https://www.nextflow.io) pipeline for generating input for [pretzel](https://github.com/plantinformatics/pretzel) from annotated and (mostly) contiguous genome assemblies. The pipeline requires approximately 1 cpu-day, but as many processes can run independently, the real run-time is much shorter if suitable compute resources are available. If `-with-dag dag.dot` is specified, nextflow outputs a DOT language representation of the pipeline, as presented below.
