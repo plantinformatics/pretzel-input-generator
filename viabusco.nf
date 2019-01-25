@@ -76,14 +76,14 @@ process fetchRemoteReference {
 }
 
 //Mix local and remote references then connect o multiple channels
-referencesRemoteFasta.mix(referencesLocal).into{ references }
+// referencesRemoteFasta.mix(referencesLocal).into{ references }
 
 process indexReference() {
   tag{meta.subMap(['species','version'])}
   label 'samtools'
 
   input:
-    set val(meta), file(fasta) from references
+    set val(meta), file(fasta) from referencesRemoteFasta.mix(referencesLocal)
 
   output:
     set val(meta), file(fasta), file("${fasta}.fai") into indexedReferences
@@ -93,13 +93,17 @@ process indexReference() {
   """
 }
 
+lineage = params.lineageBUSCO
+
 process fetchAndPrepBuscoData {
   scratch false
   tag{ "${fname}" }
 
-  echo true
   input:
-    val lineage from Channel.from(params.lineageBUSCO)
+    val lineage
+
+  output:
+    file (lineage.substring(lineage.lastIndexOf('/') + 1).replaceAll('.tar.gz','')) into lineageChannel
 
   script:
     fname = lineage.substring(lineage.lastIndexOf('/') + 1);
@@ -112,3 +116,28 @@ process fetchAndPrepBuscoData {
     ${unzip}
     """
 }
+
+process runBUSCO {
+  label 'BUSCO'
+  tag{outmeta.subMap(['species','version','lineage'])}
+
+  input:
+    set val(meta), file(fasta), file("${fasta}.fai"), file(lineage) from indexedReferences.combine(lineageChannel).first()
+
+  // output:
+  //   set val(outmeta),
+
+  script:
+    outmeta = meta.clone()
+    outmeta.lineage = lineage
+    basename=getTagFromMeta(meta)
+    //BUSCO wants to write to ${AUGUSTUS_CONFIG_PATH} which may be in a read-only container!
+    """
+    cp -r \${AUGUSTUS_CONFIG_PATH} augustus_config
+    export AUGUSTUS_CONFIG_PATH=augustus_config
+    run_BUSCO.py -i ${fasta} -o ${basename} --lineage_path ${lineage} --mode genome --cpu ${task.cpus} --species ${params.augustusSpecies} --tarzip
+    rm -r augustus_config
+    """
+}
+
+
