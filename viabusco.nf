@@ -51,6 +51,9 @@ referencesLocal.close()
 
 
 process fetchRemoteReference {
+  // storeDir {executor == 'awsbatch' ? "${params.outdir}/downloaded" : "downloaded"}
+  // scratch false
+
   tag{meta.subMap(['species','version'])}
   label 'download'
 
@@ -90,4 +93,22 @@ process indexReference() {
   """
 }
 
+process fetchAndPrepBuscoData {
+  scratch false
+  tag{ "${fname}" }
 
+  echo true
+  input:
+    val lineage from Channel.from(params.lineageBUSCO)
+
+  script:
+    fname = lineage.substring(lineage.lastIndexOf('/') + 1);
+    //DOWNLOAD?
+    fetch = lineage.matches("^(https?|ftp)://.*\$") ? "wget" : "ln -s"
+    //DECOMPRESS?
+    unzip = lineage.matches("^.*\\.tar\\.gz\$") ?  "tar xzvf ${fname}" :  " "
+    """
+    ${fetch} ${lineage}
+    ${unzip}
+    """
+}
