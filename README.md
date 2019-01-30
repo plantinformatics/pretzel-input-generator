@@ -170,8 +170,7 @@ nextflow run plantinformatics/pretzel-input-generator/viabusco.nf \
 -profile BUSCOs,singularity
 ```
 
-This will pull and process data sets from [DNA ZOO](https://www.dnazoo.org/) specified in [`conf/dna_zoo_felidae.config`](conf/dna_zoo_felidae.config), consuming around 280 CPU hours and given sufficient resources should complete in a day or so.
-
+This will pull and process data sets from [DNA Zoo](https://www.dnazoo.org/) specified in [`conf/dna_zoo_felidae.config`](conf/dna_zoo_felidae.config), consuming around 280 CPU hours and given sufficient resources should complete in a day or so.
 
 ## Output
 

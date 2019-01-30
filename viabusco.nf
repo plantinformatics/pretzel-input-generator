@@ -155,14 +155,14 @@ process generateGenomeBlocksJSON {
 }
 
 
-lineage = params.lineageBUSCO
+lineage = params.busco.lineage
 
 process fetchAndPrepBuscoData {
   scratch false
   tag{ "${fname}" }
 
   input:
-    val lineage
+    val params.busco.lineage
 
   output:
     file (lineage.substring(lineage.lastIndexOf('/') + 1).replaceAll('.tar.gz','')) into lineageChannel
@@ -170,7 +170,7 @@ process fetchAndPrepBuscoData {
   script:
     fname = lineage.substring(lineage.lastIndexOf('/') + 1);
     //DOWNLOAD?
-    fetch = lineage.matches("^(https?|ftp)://.*\$") ? "wget" : "ln -s"
+    fetch = lineage.matches("^(https?|ftp)://.*\$") ? "wget --no-check-certificate" : "ln -s"
     //DECOMPRESS?
     unzip = lineage.matches("^.*\\.tar\\.gz\$") ?  "tar xzvf ${fname}" :  " "
     """
@@ -181,23 +181,25 @@ process fetchAndPrepBuscoData {
 
 process runBUSCO {
   label 'BUSCO'
+  label 'tsv'
+
   tag{outmeta.subMap(['species','version','lineage'])}
 
   input:
     set val(meta), file(fasta), file("${fasta}.fai"), file(lineage) from indexedReferences2.combine(lineageChannel)
 
   output:
-    set val(meta), file("run_${basename}/full_table_${basename}.tsv") into computedBUSCOs
+    set val(outmeta), file("run_${basename}/full_table_${basename}.tsv"), file("${fasta}.fai") into computedBUSCOs
 
   script:
     outmeta = meta.clone()
-    outmeta.lineage = lineage
+    outmeta.lineage = lineage.name
     basename=getTagFromMeta(meta)
     //BUSCO wants to write to ${AUGUSTUS_CONFIG_PATH} which may be in a read-only container!
     """
     cp -r \${AUGUSTUS_CONFIG_PATH} augustus_config
     export AUGUSTUS_CONFIG_PATH=augustus_config
-    run_BUSCO.py -i ${fasta} -o ${basename} --lineage_path ${lineage} --mode genome --cpu ${task.cpus} --species ${params.augustusSpecies} --tarzip
+    run_BUSCO.py -i ${fasta} -o ${basename} --lineage_path ${lineage} --mode genome --cpu ${task.cpus} --species ${params.busco.augustusSpecies} --tarzip
     rm -r augustus_config
     """
 }
@@ -213,7 +215,7 @@ process generateFeaturesJSONfromBUSCOs {
   label 'groovy'
 
   input:
-    set val(meta), file(tsv) from computedBUSCOs
+    set val(meta), file(tsv), file(fai) from computedBUSCOs
 
   output:
     file "*.json.gz" into featuresJSON
@@ -245,13 +247,14 @@ process generateFeaturesJSONfromBUSCOs {
     }
     annotation.name = "${tag}_genes"
     annotation.namespace = "${genome}:${tag}_annotation"
+    //annotation.namespace = "${meta.lineage}"
     annotation.parent = "${genome}"
     annotation.blocks = []
     TreeMap scope = [:] //keep keys sorted as the corresponding blocks get displayed in order in pretzel
     buscos.eachLine { line ->
       if(!line.startsWith('#')) {
         toks = line.split('\\t')
-        if(toks[1] != "Missing" ) {
+        if(toks[1].matches("${params.busco.allowedStatus}") ) {
           location = toks[2].split(":")
           gene = toks[0]
           key = toks[2]
@@ -262,14 +265,15 @@ process generateFeaturesJSONfromBUSCOs {
         }
       }
     }
-    println(prettyPrint(toJson(scope)))
     //GROUP TOGETHER FEATURES FROM/IN SAME BLOCK
     scope.each { k, features ->
-      current = [ "scope": k, "featureType": "linear", "features": []]
-      features.each { feature ->
-        current.features << feature
+      if(features.size() >= ${params.busco.minPlaced}) {
+        current = [ "scope": k, "featureType": "linear", "features": []]
+        features.each { feature ->
+          current.features << feature
+        }
+        annotation.blocks << current
       }
-      annotation.blocks << current
     }
     out.text = prettyPrint(toJson(annotation))
     'gzip ${tag}_annotation.json'.execute()
