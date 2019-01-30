@@ -11,6 +11,14 @@ import static groovy.json.JsonOutput.*
   return (meta.species+delim+meta.version+(trialLines == null ? "" : delim+trialLines+delim+"trialLines"))
 }
 
+/*
+  Generic method for extracting a string tag or a file basename from a metadata map
+ */
+def getAnnotationTagFromMeta(meta, delim = '_') {
+  return meta.species+delim+meta.version+(meta.containsKey("annotation") ? delim+meta.annotation : "")+(trialLines == null ? "" : delim+trialLines+delim+"trialLines")
+}
+
+
 def helpMessage() {
   log.info"""
   Usage:
@@ -86,12 +94,61 @@ process indexReference() {
     set val(meta), file(fasta) from referencesRemoteFasta.mix(referencesLocal)
 
   output:
-    set val(meta), file(fasta), file("${fasta}.fai") into indexedReferences
+    set val(meta), file(fasta), file("${fasta}.fai") into indexedReferences1, indexedReferences2
 
   """
   samtools faidx ${fasta}
   """
 }
+
+/*
+* Generate genome blocks definitions JSON for pretzel
+*/
+process generateGenomeBlocksJSON {
+  tag{tag}
+  label 'json'
+  label 'groovy'
+
+  input:
+    set val(meta), file(fasta), file(idx) from indexedReferences1
+
+  output:
+    file "*.json" into genomeBlocksJSON
+
+  script:
+    tag=getTagFromMeta(meta)
+    """
+    #!/usr/bin/env groovy
+
+    import static groovy.json.JsonOutput.*
+    idx = new File('${idx}').text
+    out = new File('${tag}_genome.json')
+    def genome = [:]
+    genome.name = "${tag}"
+    genome.meta = [:]
+    if("${meta.shortName}" != "null") {
+      genome.meta << ["shortName" : "${meta.shortName}"]
+    }
+    if("${meta.source}" != "null") {
+      genome.meta << ["source" : "${meta.source}"]
+    }
+    if("${meta.version}" != "null") {
+      genome.meta << ["version" : "${meta.version}"]
+    }
+    if("${meta.citation}" != "null") {
+      genome.meta << ["citation" : "${meta.citation}"]
+    }
+    genome.blocks = []
+    idx.eachLine { line ->
+      if(line.toLowerCase() =~ /^(chr|[0-9]|x|y|hic_scaffold)/ ) {
+        toks = line.split('\t')
+        genome.blocks += [ "scope": toks[0].replaceFirst("^(C|c)(H|h)(R|r)[_]?",""), "featureType": "linear", "range": [1, toks[1].toInteger()] ]
+      }
+    }
+    out.text = prettyPrint(toJson(genome))
+    """
+}
+
 
 lineage = params.lineageBUSCO
 
@@ -122,10 +179,10 @@ process runBUSCO {
   tag{outmeta.subMap(['species','version','lineage'])}
 
   input:
-    set val(meta), file(fasta), file("${fasta}.fai"), file(lineage) from indexedReferences.combine(lineageChannel).first()
+    set val(meta), file(fasta), file("${fasta}.fai"), file(lineage) from indexedReferences2.combine(lineageChannel)
 
-  // output:
-  //   set val(outmeta),
+  output:
+    set val(meta), file("run_${basename}/full_table_${basename}.tsv") into computedBUSCOs
 
   script:
     outmeta = meta.clone()
@@ -141,3 +198,75 @@ process runBUSCO {
 }
 
 
+/*
+* Generate for pretzel JSON aliases linking features between chromosomes/genomes
+* Fails if JSON invalid
+*/
+process generateFeaturesJSONfromBUSCOs {
+  tag{tag}
+  label 'json'
+  label 'groovy'
+
+  input:
+    set val(meta), file(tsv) from computedBUSCOs
+
+  output:
+    file "*.json.gz" into featuresJSON
+
+  script:
+    tag=getAnnotationTagFromMeta(meta)
+    genome=getTagFromMeta(meta)
+    shortName = (meta.containsKey("shortName") ? meta.shortName+"_genes" : "")
+    shortName +=(meta.containsKey("annotation") ? "_"+meta.annotation : "") //only for cases where multiple annotations per genome
+    """
+    #!/usr/bin/env groovy
+
+    import static groovy.json.JsonOutput.*
+    buscos = new File('${tsv}').text
+    out = new File('${tag}_annotation.json')
+    def annotation = [:]
+    annotation.meta = [:]
+    if("${meta.shortName}" != "null") {
+      annotation.meta << ["shortName" : "${shortName}"]
+    }
+    if("${meta.source}" != "null") {
+      annotation.meta << ["source" : "${meta.source}"]
+    }
+    if("${meta.version}" != "null") {
+      annotation.meta << ["version" : "${meta.version}"]
+    }
+    if("${meta.citation}" != "null") {
+      annotation.meta << ["citation" : "${meta.citation}"]
+    }
+    annotation.name = "${tag}_genes"
+    annotation.namespace = "${genome}:${tag}_annotation"
+    annotation.parent = "${genome}"
+    annotation.blocks = []
+    TreeMap scope = [:] //keep keys sorted as the corresponding blocks get displayed in order in pretzel
+    buscos.eachLine { line ->
+      if(!line.startsWith('#')) {
+        toks = line.split('\\t')
+        if(toks[1] != "Missing" ) {
+          location = toks[2].split(":")
+          gene = toks[0]
+          key = toks[2]
+          if(!scope.containsKey(key)) {
+            scope << [(key) : []]
+          }
+          scope[key] << ["name" : gene, "range" : [ toks[3].toInteger(), toks[4].toInteger() ]]
+        }
+      }
+    }
+    println(prettyPrint(toJson(scope)))
+    //GROUP TOGETHER FEATURES FROM/IN SAME BLOCK
+    scope.each { k, features ->
+      current = [ "scope": k, "featureType": "linear", "features": []]
+      features.each { feature ->
+        current.features << feature
+      }
+      annotation.blocks << current
+    }
+    out.text = prettyPrint(toJson(annotation))
+    'gzip ${tag}_annotation.json'.execute()
+    """
+}
