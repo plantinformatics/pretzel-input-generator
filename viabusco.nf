@@ -1,5 +1,10 @@
 #!/usr/bin/env nextflow
 
+if(!workflow.profile.contains('BUSCO')) {
+  println("This workflow requires -profile BUSCOs")
+  exit 1
+}
+
 //INPUT PARAMS
 trialLines = params.trialLines
 

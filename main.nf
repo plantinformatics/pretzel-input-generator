@@ -1,5 +1,9 @@
 #!/usr/bin/env nextflow
-// echo true
+
+if(!workflow.profile.contains('EP')) {
+  println("This workflow requires -profile EP to be specified")
+  exit 1
+}
 
 //INPUT PARAMS
 trialLines = params.trialLines
