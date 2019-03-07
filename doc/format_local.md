@@ -61,3 +61,27 @@ Fix chromosome names in gff, exclude unplaced scaffolds/contigs, remove `.T??` s
 ```
 grep -E '^Tu[1-7]' WheatTu.gene.gff | sed -E -e 's/^(Tu)([1-7])/\2A/' -e 's/\.T[0-9]+//g' > WheatTu.gene_mod.gff
 ```
+
+## Triticum dicoccoides (Wild Emmer) WEW_v2.0
+
+
+```
+#get datawget ftp://ftp.ebi.ac.uk/pub/databases/ena/wgs/public/ls/LSYQ01.fasta.gz
+# decompress and sanitize ids
+pigz -dcp2 LSYQ01.fasta.gz | sed -re 's/^>ENA.*(scaffold[0-9]+.*|[1-7][A-B]),.*/>\1/' > WEW_2.0.fasta
+#align
+./minimap2-2.16_x64-linux/minimap2 -a -x splice -I 20G -t 20 WEW_2.0.fasta ../Wheat_Wild_Emmer_Zavitan/TRIDC_WEWseq_PGSB_20160501_CDS_HighConf_REPR.fasta > TRIDC_WEWseq_PGSB_20160501_CDS_HighConf_REPR_vs_WEW_2.0.sam
+```
+
+* `-I 20G` ensures unsplit index needed for valid header without re-creating the header (e.g. `samtools view -b -T ref.fa sam > bam`)
+
+
+```
+samtools view -F 2304 TRIDC_WEWseq_PGSB_20160501_CDS_HighConf_REPR_vs_WEW_2.0.sam | awk 'NR==FNR{len=0;split($3,a,/[[:upper:]]/);for(i in a) len+=a[i]; loc[">"$1]=$3":"$4":"$4+len} NR!=FNR{if($1 ~ /^>/){ID=$1; ID2=$1; sub(/^>/,"",ID2); sub(/\.[0-9]+$/,"",ID2); print ID,"pep","chromosome:WEW_v2.0:"loc[ID],"gene:"ID2} else {print}}' - <(fasta_formatter < ../Wheat_Wild_Emmer_Zavitan/TRIDC_WEWseq_PGSB_20160501_Proteins_HighConf_REPR.fasta) > TRIDC_WEWseq_PGSB_20160501_Proteins_HighConf_REPR_on_WEW2.0.fasta
+```
+
+to skip genes which are not placed on chromosomes
+
+```
+paste - - < TRIDC_WEWseq_PGSB_20160501_Proteins_HighConf_REPR_on_WEW2.0.fasta | grep -v scaffold | tr '\t' '\n' > TRIDC_WEWseq_PGSB_20160501_Proteins_HighConf_REPR_on_WEW2.0_chromosomes.fasta
+```
