@@ -12,7 +12,7 @@ parser = argparse.ArgumentParser(prog=os.path.basename(__file__),
   description="Parse ENA embl e.g. from the output of wget -O LS480641.1.embl \"http://www.ebi.ac.uk/ena/data/view/LS480641.1&display=text\"")
 parser.add_argument('-i', '--infile', nargs='?', type=argparse.FileType('r'),
   default='sys.stdin', help='provide input file name or use stdin')
-parser.add_argument('-o', '--outfile', nargs='?', type=argparse.FileType('wa'),
+parser.add_argument('-o', '--outfile', nargs='?', type=argparse.FileType('w'),
   default='sys.stout', help='provide output file name or use stout')
 
 
