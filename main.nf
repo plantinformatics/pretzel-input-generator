@@ -395,7 +395,23 @@ process generateAliasesJSON {
 }
 
 
+process pack {
+  label 'archive'
+  executor 'local'
 
+  input:
+    file('*') from genomeBlocksJSON.collect()
+    file('*') from featuresJSON.collect()
+    file('*') from aliasesJSON.collect()
+
+  output:
+    file('*') into targzJSON
+
+  """
+  tar chzvf JSON-\$(date --iso-8601).tar.gz *.json *.json.gz
+  tar chzvf  JSON-\$(date --iso-8601)-no_LC.tar.gz *.json *.json.gz --exclude '*LC*'
+  """
+}
 
 // process mergeAliasesJSON {
 //   label 'json'
