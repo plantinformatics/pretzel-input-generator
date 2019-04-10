@@ -181,7 +181,7 @@ process fetchAndPrepBuscoData {
 
 process runBUSCO {
   label 'BUSCO'
-  label 'tsv'
+  label 'summary'
 
   tag{outmeta.subMap(['species','version','lineage'])}
 
@@ -190,6 +190,7 @@ process runBUSCO {
 
   output:
     set val(outmeta), file("run_${basename}/full_table_${basename}.tsv"), file("${fasta}.fai") into computedBUSCOs
+    file ("run_${basename}/short_summary_${basename}.txt")
 
   script:
     outmeta = meta.clone()
@@ -295,7 +296,7 @@ process generateStandaloneJSONfromBUSCOs {
     set val(meta), file(tsv), file(fai) from computedBUSCOs
 
   output:
-    file "*.json" into featuresJSON
+    file "*.json.gz" into featuresJSON
     // file "*.json.gz" into featuresJSON
 
   script:
@@ -308,7 +309,18 @@ process generateStandaloneJSONfromBUSCOs {
 
     import static groovy.json.JsonOutput.*
     buscos = new File('${tsv}').text
-    out = new File('${tag}_annotation.json')
+    out = new File('${tag}.json')
+
+    //RECORD chromosome/scaffold sizes
+    idx = new File('${fai}').text
+    lengths = [:]
+    idx.eachLine { line ->
+      if(line.toLowerCase() =~ /^(chr|[0-9]|x|y|hic_scaffold)/ ) {
+        toks = line.split('\t')
+        lengths.(toks[0].replaceFirst("^(C|c)(H|h)(R|r)[_]?","")) = toks[1].toInteger()
+      }
+    }
+    //AGGREGATE DATA MAP
     def annotation = [:]
     annotation.meta = [:]
     if("${meta.shortName}" != "null") {
@@ -344,7 +356,8 @@ process generateStandaloneJSONfromBUSCOs {
     //GROUP TOGETHER FEATURES FROM/IN SAME BLOCK
     scope.each { k, features ->
       if(features.size() >= ${params.busco.minPlaced}) {
-        current = [ "scope": k, "featureType": "linear", "features": []]
+        //current = [ "scope": k, "featureType": "linear", "features": []]
+        current = [ "scope": k, "featureType": "linear", "range": [1, lengths[k]], "features": []]
         features.each { feature ->
           current.features << feature
         }
@@ -352,6 +365,6 @@ process generateStandaloneJSONfromBUSCOs {
       }
     }
     out.text = prettyPrint(toJson(annotation))
-    // 'gzip ${tag}_annotation.json'.execute()
+    'gzip ${tag}.json'.execute()
     """
 }
