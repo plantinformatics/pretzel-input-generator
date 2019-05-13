@@ -7,7 +7,7 @@ if(!workflow.profile.contains('EP')) {
 
 //INPUT PARAMS
 trialLines = params.trialLines
-eprelease = params.eprelease
+// eprelease = params.eprelease
 
 import static groovy.json.JsonOutput.*
 
@@ -103,14 +103,14 @@ process fetchRemoteDataFromEnsemblPlants {
   label 'download'
 
   input:
-    set val(species), val(version), val(shortName) from Channel.from(params.remoteAssembly)
+    set val(species), val(version), val(shortName), val(eprelease) from Channel.from(params.remoteAssembly)
 
   output:
     set val(meta), file("${basename}.idx") into remoteIndices
     set val(meta), file("${basename}.pep") into remotePepSeqs
 
   script:
-    meta=["species":species, "version":version, "source": "https://plants.ensembl.org/"+species, "release": params.eprelease, "shortName": shortName]
+    meta=["species":species, "version":version, "source": "https://plants.ensembl.org/"+species, "release": eprelease, "shortName": shortName]
     basename=getDatasetTagFromMeta(meta)
     idxurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/dna_index/"+species+"."+version+idxsuffix
     pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
