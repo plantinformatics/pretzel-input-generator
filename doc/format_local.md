@@ -21,6 +21,25 @@ wget -O LS480641.1.embl "http://www.ebi.ac.uk/ena/data/view/LS480641.1&display=t
 python bin/emblparse_Campala_Lr22a.py --infile LS480641.1.embl --outfile LS480641.1.aa.fasta
 ```
 
+### Svevo *Triticum turgidum ssp. durum*
+
+```bash
+for s in $(seq 934111 934124); do
+  time wget -O LT${s}.1.embl "https://www.ebi.ac.uk/ena/data/view/LT${s}&display=text";
+done
+#real    436m21.530s
+```
+
+```bash
+time paste \
+  <(ls LT9341??.1.embl) \
+  <( for c in $(seq 1 7); do for g in A B; do echo $c$g; done; done) \
+  | while read f c;
+    do
+    ~/.nextflow/assets/plantinformatics/pretzel-input-generator/bin/emblparse.py \
+      -i $f -o ${f%.embl}.aa.fasta -a Svevo -c $c;
+    done
+```
 
 ## *Triticum urartu*
 
