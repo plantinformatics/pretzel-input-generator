@@ -216,11 +216,15 @@ process convertReprFasta2EnsemblPep {
 }
 
 /*
-* Only keep "representative" splice form for each gene, typically suffix ".1", some times "-01"
+ Only keep "representative" splice form for each gene,
+ current approach selects longest transcript,
+ we previously relied on ID suffix ".1", some times "-01"
+ but some of the more recent Ensembl plants data sets
+ no longer follow this convention
 */
 process filterForRepresentativePeps {
   tag{meta}
-  //label 'fastx'
+  label 'fastx'
   input:
     set val(meta), file(pep) from remotePepSeqs
 
@@ -230,7 +234,8 @@ process filterForRepresentativePeps {
   script:
     tag=getAnnotationTagFromMeta(meta)
     """
-    cat ${pep} | filterForRepresentative.awk > ${tag}_repr.pep
+    fasta_formatter < ${pep} | paste - - | filterForRepresentative.awk > ${tag}_repr.pep
+    [ -s ${tag}_repr.pep ] || (echo 'Error! Empty output file! ${tag}_repr.pep'; exit 1)
     """
 }
 
