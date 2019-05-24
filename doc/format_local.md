@@ -41,6 +41,13 @@ time paste \
     done
 ```
 
+Collect all protein sequences in one file and record pseudochromosome lengths in another.
+
+```
+cat LT9341??.1.aa.fasta  > Svevo.aa.fa
+grep -hm2 -e '^RP' -e 'chromosome'  *.embl  | grep -oE -e '[0-9][AB]' -e '[0-9]{2,}' | paste - -  > Svevo.len
+```
+
 ## *Triticum urartu*
 
 Download assembly and annotation from MBKBase
