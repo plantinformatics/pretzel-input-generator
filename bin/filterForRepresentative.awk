@@ -12,9 +12,9 @@ BEGIN {
   sub(/^>[^ ]+/, ">"ID); #USE GENE ID AS FASTA IDENTIFIER (NOT TRANSCRIPT ID)
   if(!(ID in storedIDs) || length($2) > length(StoredSeqLines[ID])) { #FIRST OCCURANCE OT LONGER THAN STORED
     storedIdLInes[ID] = $1;
-    print "storing "$1
+    # print "storing "$1
     storedSeqLines[ID] = $2;
-    print "storing "$2
+    # print "storing "$2
   }
 }
 

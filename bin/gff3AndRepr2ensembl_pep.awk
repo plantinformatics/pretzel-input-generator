@@ -24,7 +24,7 @@ NR!=FNR {
         transcript=pair[2];
       } else if(pair[1]=="Parent") {
         gene=pair[2];
-        gsub(/\.[0-9]++/,"",gene);
+        gsub(/\.[0-9]+$/,"",gene);
       }
     }
     if(transcript in repr && !(gene in printed)) {
