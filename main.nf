@@ -114,6 +114,10 @@ process fetchRemoteDataFromEnsemblPlants {
     basename=getDatasetTagFromMeta(meta)
     idxurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/dna_index/"+species+"."+version+idxsuffix
     pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
+    //Someone decided to embed Genus_species in version as well,
+    //must be kept there to fetch from Ensembl plants but otherwise annoying as makes data set names long and repetitive
+    //could be solved by explicitly setting pathis in input config (e.g. conf/triticeae.config)
+    meta.version = ((meta.version-meta.species).strip('_'))
     if(trialLines == null) {
       """
       curl $idxurl > ${basename}.idx
@@ -164,6 +168,7 @@ process generateGenomeBlocksJSON {
     if("${meta.citation}" != "null") {
       genome.meta << ["citation" : "${meta.citation}"]
     }
+    genome.meta << ["type" : "Genome"]
     genome.blocks = []
     idx.eachLine { line ->
       if(line.toLowerCase() =~ /^(chr|[0-9]|x|y)/ ) {
