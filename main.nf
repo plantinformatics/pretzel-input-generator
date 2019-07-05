@@ -143,7 +143,7 @@ process generateGenomeBlocksJSON {
     set val(meta), file(idx) from localIndices.mix(remoteIndices)
 
   output:
-    file "*.json" into genomeBlocksJSON
+    file "*.json" into genomeBlocksJSON, genomeBlocksStats
 
   script:
     tag=getDatasetTagFromMeta(meta)
@@ -259,6 +259,7 @@ process generateFeaturesJSON {
 
   output:
     file "*.json.gz" into featuresJSON
+    file "*.counts" into featuresCounts
 
   script:
 
@@ -272,6 +273,7 @@ process generateFeaturesJSON {
     import static groovy.json.JsonOutput.*
     pep = new File('${pep}').text
     out = new File('${tag}_annotation.json')
+    counts = new File('${tag}_annotation.counts')
     def annotation = [:]
     annotation.meta = [:]
     if("${meta.shortName}" != "null") {
@@ -311,6 +313,13 @@ process generateFeaturesJSON {
       }
       annotation.blocks << current
     }
+    //RECORD NUM FEATURS PER BLOCK
+    counts.withWriterAppend{ wr ->
+      annotation.blocks.each {
+        wr.println  annotation.name+"\\t"+it.scope+"\\t"+it.features.size()
+      }
+    }
+    //OUTPUT JSON, COMPRESS
     out.text = prettyPrint(toJson(annotation))
     'gzip ${tag}_annotation.json'.execute()
     """
@@ -376,6 +385,7 @@ process pairProteins {
 process generateAliasesJSON {
   tag{basename}
   label 'json'
+  label 'jq'
   errorStrategy 'ignore'  //expecting exit status 3 if no aliases generated
   echo 'true'
 
@@ -384,6 +394,7 @@ process generateAliasesJSON {
 
   output:
     file "${basename}_aliases.json.gz" into aliasesJSON
+    file "${basename}_aliases.len" into aliasesCounts
     // set val(basename), file("${basename}_aliases.json") into aliasesJSON
 
   script:
@@ -399,8 +410,10 @@ process generateAliasesJSON {
     """
     #at least one of the aligned pair must meet the minCoverageFilter threshold
     ${cmd} | awk '\$3 >= ${params.minIdentityFilter} && ((\$8-\$7+1)/\$13 >= ${params.minCoverageFilter} || (\$10-\$9+1)/\$14 >= ${params.minCoverageFilter})' \
-    | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} | gzip > ${basename}_aliases.json.gz
-    zcat ${basename}_aliases.json | head | grep -E '[[:alnum:]]' > /dev/null || (echo "No aliases generated for ${basename}" && exit 3)
+    | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} \
+    | tee >(jq length >> ${basename}_aliases.len) \
+    | gzip > ${basename}_aliases.json.gz \
+    && zcat ${basename}_aliases.json | head | grep -E '[[:alnum:]]' > /dev/null || (echo "No aliases generated for ${basename}" && exit 3)
     """
 }
 
@@ -421,6 +434,27 @@ process pack {
   tar chzvf JSON-\$(date --iso-8601).tar.gz *.json *.json.gz
   tar chzvf  JSON-\$(date --iso-8601)-no_LC.tar.gz *.json *.json.gz --exclude '*LC*'
   """
+}
+
+process stats {
+  echo true
+  label 'summary'
+
+  input:
+    file('*') from genomeBlocksStats.collect()
+    file('*') from featuresCounts.collect()
+    file('*') from aliasesCounts.collect()
+
+  output:
+    file('*') into outstats
+
+  script:
+  """
+  jq -r  '.blocks[] | (input_filename, .scope, .range[1])' *_genome.json | paste - - - | sort -V > blocks.counts
+  cat *_annotation.counts | sort -V > feature.counts
+  grep "" *_aliases.len > aliases.counts
+  """
+  //jq '.blocks[]' ${f} | jq 'input_filename, .scope, (.features | length)' | paste - - | sort -V
 }
 
 // process mergeAliasesJSON {
