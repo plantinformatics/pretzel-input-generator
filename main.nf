@@ -300,7 +300,7 @@ process generateFeaturesJSON {
         if(!scope.containsKey(key)) {
           scope << [(key) : []]
         }
-        scope[key] << ["name" : gene[1], "range" : [ location[3].toInteger(), location[4].toInteger() ]]
+        scope[key] << ["name" : gene[1], "value" : [ location[3].toInteger(), location[4].toInteger() ]]
       }
     }
     //GROUP TOGETHER FEATURES FROM/IN SAME BLOCK
@@ -400,7 +400,7 @@ process generateAliasesJSON {
     #at least one of the aligned pair must meet the minCoverageFilter threshold
     ${cmd} | awk '\$3 >= ${params.minIdentityFilter} && ((\$8-\$7+1)/\$13 >= ${params.minCoverageFilter} || (\$10-\$9+1)/\$14 >= ${params.minCoverageFilter})' \
     | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} | gzip > ${basename}_aliases.json.gz
-    zcat ${basename}_aliases.json | head | grep '[a-Z0-9]' > /dev/null || (echo "No aliases generated for ${basename}" && exit 3)
+    zcat ${basename}_aliases.json | head | grep -E '[[:alnum:]]' > /dev/null || (echo "No aliases generated for ${basename}" && exit 3)
     """
 }
 
