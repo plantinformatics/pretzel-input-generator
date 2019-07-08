@@ -54,7 +54,7 @@ if(params.localAssembly != "NA") {
       // println(id+" -> "+pep)
         clone = it.clone()
         clone.annotation = id
-        gtfgff3 = it.containsKey(key) ? file(it.get(key).get(id)) : null
+        gtfgff3 = (it.containsKey(key) && it.get(key).containsKey(id)) ? file(it.get(key).get(id)) : null
           localInput << [clone,gtfgff3,file(pep)]
       }
     } else { //if (!(it.pep instanceof Map) && !(it.get(key) instanceof Map)){
