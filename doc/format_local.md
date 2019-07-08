@@ -21,6 +21,14 @@ wget -O LS480641.1.embl "http://www.ebi.ac.uk/ena/data/view/LS480641.1&display=t
 python bin/emblparse_Campala_Lr22a.py --infile LS480641.1.embl --outfile LS480641.1.aa.fasta
 ```
 
+Create dummy "index" file `LS480641.1.len` with a single line:
+
+```
+2D  563502314
+```
+
+
+
 ### Svevo *Triticum turgidum ssp. durum*
 
 ```bash
