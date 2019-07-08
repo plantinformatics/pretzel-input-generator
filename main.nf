@@ -299,10 +299,13 @@ process generateFeaturesJSON {
         location = toks[2].split(":")
         gene = toks[3].split(":")
         key = location[2].replaceFirst("^(C|c)(H|h)(R|r)[_]?","")
-        if(!scope.containsKey(key)) {
-          scope << [(key) : []]
+        //Skip non-chromosome blocks
+        if(key.toLowerCase() =~ /^(chr|[0-9]|x|y)/ ) {
+          if(!scope.containsKey(key)) {
+            scope << [(key) : []]
+          }
+          scope[key] << ["name" : gene[1], "value" : [ location[3].toInteger(), location[4].toInteger() ]]
         }
-        scope[key] << ["name" : gene[1], "value" : [ location[3].toInteger(), location[4].toInteger() ]]
       }
     }
     //GROUP TOGETHER FEATURES FROM/IN SAME BLOCK
