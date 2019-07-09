@@ -155,6 +155,7 @@ process generateGenomeBlocksJSON {
     out = new File('${tag}_genome.json')
     def genome = [:]
     genome.name = "${tag}"
+    genome.public = ${!params.makePrivate}
     genome.meta = [:]
     if("${meta.shortName}" != "null") {
       genome.meta << ["shortName" : "${meta.shortName}"]
@@ -275,6 +276,7 @@ process generateFeaturesJSON {
     out = new File('${tag}_annotation.json')
     counts = new File('${tag}_annotation.counts')
     def annotation = [:]
+    annotation.public = ${!params.makePrivate}
     annotation.meta = [:]
     if("${meta.shortName}" != "null") {
       annotation.meta << ["shortName" : "${shortName}"]
