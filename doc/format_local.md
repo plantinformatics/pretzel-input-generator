@@ -12,7 +12,7 @@ sed -E 's/^>(.*chromosome )([1-7]D)(.*)$/>\2 \1\2\3/' AtGSP.fa > AtGSP_mod.fa
 
 ## Campala *Lr22a*
 
-This is a case where all required information was available in one place, and the approach for extracting that information may be generalised if additional, similarily-formated data sets were to be included.
+This is a case where all required information was available in one place, and the approach for extracting that information may be generalised if additional, similarly-formated data sets were to be included.
 
 Download assembly with annotation, and parse:
 
@@ -27,6 +27,9 @@ Create dummy "index" file `LS480641.1.len` with a single line:
 2D  563502314
 ```
 
+Get chromosome FASTA
+
+python bin/embl_2_fasta.py < LS480641.1.embl | sed '1 s/^.*$/>2D/' >  LS480641.1.fasta
 
 
 ### Svevo *Triticum turgidum ssp. durum*
@@ -54,6 +57,13 @@ Collect all protein sequences in one file and record pseudochromosome lengths in
 ```
 cat LT9341??.1.aa.fasta  > Svevo.aa.fa
 grep -hm2 -e '^RP' -e 'chromosome'  *.embl  | grep -oE -e '[0-9][AB]' -e '[0-9]{2,}' | paste - -  > Svevo.len
+```
+
+Extract assembly FASTA
+
+```
+for f in Svevo/ENA/*.embl; do ~/.nextflow/assets/plantinformatics/pretzel-input-generator/bin/embl_2_fast
+a.py < ${f}; done | sed -E 's/^>.*(..)$/>\1/' > Svevo/ENA/Svevo.fasta
 ```
 
 ## *Triticum urartu*
@@ -95,6 +105,10 @@ Fix chromosome names in gff, exclude unplaced scaffolds/contigs, remove `.T??` s
 ```
 grep -E '^Tu[1-7]' WheatTu.gene.gff | sed -E -e 's/^(Tu)([1-7])/\2A/' -e 's/\.T[0-9]+//g' > WheatTu.gene_mod.gff
 ```
+
+Fix chromosome names in FASTA
+
+sed -i 's/^>Tu\([1-7]\)/>\1A/' WheatTu.genome.fasta
 
 ## Triticum dicoccoides (Wild Emmer) WEW_v2.0
 
