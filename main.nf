@@ -36,14 +36,29 @@ if (params.help){
 urlprefix = params.urlprefix
 pepsuffix = params.pepsuffix
 idxsuffix = params.idxsuffix
+fastasuffix = params.fastasuffix
 
 // def noKeyOrIsMap
+
+//LOCAL marker sets
+
+Channel.from(params.markers)
+.map {
+  [it, file(it.fasta)]
+}
+.set{ markerSetsChannel }
 
 //LOCAL INPUTS
 localInput = Channel.create()
 localIndices = Channel.create()
+localGenomeSeqs = Channel.create()
 if(params.localAssembly != "NA") {
   params.localAssembly.each {
+     //Genome Fasta optional (?)
+    if(it.containsKey("fasta")) {
+      localGenomeSeqs << [it,file(it.fasta)]
+      it.remove('fasta')
+    }
     // println(prettyPrint(toJson(it)))
     // for (key in ["gtf","gff3"]) {
     key = 'gtfgff3'
@@ -67,10 +82,12 @@ if(params.localAssembly != "NA") {
     if(it.containsKey("idx")) {
       localIndices << [it,file(it.idx)]
     }
+
   }
 }
 localInput.close()
 localIndices.close()
+localGenomeSeqs.close()
 
 // def exitOnInputMismatch(data) {
 //   println("Malformed input. Expecting number of pep and gtf/gff3 inputs to match for a data set.")
@@ -108,11 +125,13 @@ process fetchRemoteDataFromEnsemblPlants {
   output:
     set val(meta), file("${basename}.idx") into remoteIndices
     set val(meta), file("${basename}.pep") into remotePepSeqs
+    set val(meta), file("${basename}.fasta") into remoteGenomeSeqs
 
   script:
     meta=["species":species, "version":version, "source": "https://plants.ensembl.org/"+species, "release": eprelease, "shortName": shortName]
     basename=getDatasetTagFromMeta(meta)
     idxurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/dna_index/"+species+"."+version+idxsuffix
+    fastaurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/dna/"+species+"."+version+fastasuffix
     pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
     //Someone decided to embed Genus_species in version as well,
     //must be kept there to fetch from Ensembl plants but otherwise annoying as makes data set names long and repetitive
@@ -121,14 +140,28 @@ process fetchRemoteDataFromEnsemblPlants {
     if(trialLines == null) {
       """
       curl $idxurl > ${basename}.idx
+      curl $fastaurl | gunzip --stdout > ${basename}.fasta
       curl $pepurl | gunzip --stdout > ${basename}.pep
       """
     } else {
       """
       curl $idxurl > ${basename}.idx
+      curl $fastaurl | gunzip --stdout | head -n ${trialLines} > ${basename}.fasta
       curl $pepurl | gunzip --stdout | head -n ${trialLines} > ${basename}.pep
       """
     }
+}
+
+process alignMarkers {
+  label 'minimap2'
+  tag {"${refmeta} <- ${markersmeta}"}
+  input:
+    set val(refmeta), file(ref), val(markersmeta), file(markers) from remoteGenomeSeqs.mix(localGenomeSeqs).combine(markerSetsChannel).first()
+
+  """
+  minimap2 -a -x sr -I ${task.memory.toGiga()}G -t ${task.cpus} ${ref} ${markers}
+  """
+
 }
 
 /*
@@ -331,6 +364,7 @@ process generateFeaturesJSON {
 }
 
 
+
 // //REPEAT INPUT FOR EACH SUBGENOME
 // localPepSeqs4AliasesRep = Channel.create()
 // localPepSeqs4Aliases.subscribe onNext: {
@@ -461,6 +495,16 @@ process stats {
   """
   //jq '.blocks[]' ${f} | jq 'input_filename, .scope, (.features | length)' | paste - - | sort -V
 }
+
+// process alignMarkers {
+//   input:
+//     file markers from markerSetsChannel
+
+//   """
+//   minimap2 -a -x sr -I 20G -t 20  161010_Chinese_Spring_v1.0_p
+// seudomolecules.fasta 90kSNPprobes.seq.fasta > 90kSNPprobes.seq.fasta_vs_161010_Chinese_Spring_v1.0_pseudomolecules.sam
+//   """
+// }
 
 // process mergeAliasesJSON {
 //   label 'json'
