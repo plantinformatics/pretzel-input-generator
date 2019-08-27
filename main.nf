@@ -11,6 +11,12 @@ trialLines = params.trialLines
 
 import static groovy.json.JsonOutput.*
 
+//Otherwise JSON generation triggers stackoverflow when encountering Path objects
+jsonGenerator = new groovy.json.JsonGenerator.Options()
+                .addConverter(java.nio.file.Path) { java.nio.file.Path p, String key -> p.toUriString() }
+                .build()
+
+
 def helpMessage() {
   log.info"""
   =============================================================
@@ -57,7 +63,7 @@ if(params.localAssembly != "NA") {
      //Genome Fasta optional (?)
     if(it.containsKey("fasta")) {
       localGenomeSeqs << [it,file(it.fasta)]
-      it.remove('fasta')
+      it.remove('fasta') //preventing cached re runs after fasta added to meta
     }
     // println(prettyPrint(toJson(it)))
     // for (key in ["gtf","gff3"]) {
@@ -104,6 +110,7 @@ localGenomeSeqs.close()
 def getAnnotationTagFromMeta(meta, delim = '_') {
   return meta.species+delim+meta.version+(meta.containsKey("annotation") ? delim+meta.annotation : "")+(trialLines == null ? "" : delim+trialLines+delim+"trialLines")
 }
+
 
 /*
   Generic method for extracting a string tag or a file basename from a metadata map
@@ -156,12 +163,39 @@ process alignMarkers {
   label 'minimap2'
   tag {"${refmeta} <- ${markersmeta}"}
   input:
-    set val(refmeta), file(ref), val(markersmeta), file(markers) from remoteGenomeSeqs.mix(localGenomeSeqs).combine(markerSetsChannel).first()
+    set val(refmeta), file(ref), val(markersmeta), file(markers) from remoteGenomeSeqs.mix(localGenomeSeqs).combine(markerSetsChannel)
 
-  """
-  minimap2 -a -x sr -I ${task.memory.toGiga()}G -t ${task.cpus} ${ref} ${markers}
-  """
+  output:
+    set val(outmeta), file('*.sam') into alignedMarkersChannel
 
+  script:
+  outmeta = [ref: refmeta, markers: markersmeta]
+  """
+  minimap2 -a -x sr -I ${task.memory.toGiga()}G -t ${task.cpus} ${ref} ${markers} > ${markers}_vs_${ref}.sam
+  """
+}
+
+// alignedMarkersChannel.view { it -> groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(it))}
+
+process generateFeaturesFromMarkerAlignemtnsJSON {
+  executor 'local'
+  tag { tag }
+  label 'groovy'
+
+  input:
+    set val(meta), file(sam) from alignedMarkersChannel.first()
+
+  script:
+  tag=[meta.ref.species, meta.ref.version, meta.markers.name].join('_')
+  genome=getDatasetTagFromMeta(meta.ref) //parent
+  //shortName = (meta.ref.containsKey("shortName") ? meta.ref.shortName+"_"+meta.markers.name : "")
+
+  println(groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(meta)))
+
+  template 'sam2pretzel.groovy'
+  // """
+
+  // """
 }
 
 /*

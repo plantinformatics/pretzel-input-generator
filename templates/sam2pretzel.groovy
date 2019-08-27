@@ -11,7 +11,6 @@ annotation.meta = [:]
 
 annotation.name = "${tag}"
 
-
 TreeMap scope = [:] //keep keys sorted as the corresponding blocks get displayed in order in pretzel
 samContent.eachLine { line ->
   if(!line.startsWith('@')) {
@@ -25,32 +24,28 @@ samContent.eachLine { line ->
     boolean isPrimary = (!isSecondary && !isSupplementary)
     // statsKey = isPrimary ? 'primary' : isSecondary ? 'secondary' : isSupplementary ? 'supplementary' : "ERROR - record should be primary or secondary or supplementary"
 
-    // if(RNAME == '*') {
-    //   //unaligned
-    // }
+    if(RNAME != '*') { //Aligned
+      // //ORIENTATION
+      // boolean reverse = ((flag & 16) != 0)
 
-    // //ORIENTATION
-    // boolean reverse = ((flag & 16) != 0)
+      //Alignment details
+      def cigar = CIGAR
+      int alnStart = POS.toInteger() //- getStartClip(cigar)
+      int alnEnd = alnStart + getAlignmentLength(cigar)-1 //Get aln len from CIGAR string
 
-    //Alignment details
-    def cigar = CIGAR
-    int alnStart = isUnaligned ? 0 : POS.toInteger() //- getStartClip(cigar)
-    int alnEnd = isUnaligned ? -1 : alnStart + getAlignmentLength(cigar)-1 //Get aln len from CIGAR string
-
-    if(!scope.containsKey(RNAME)) {
-      scope << [(RNAME) : []]
+      if(!scope.containsKey(RNAME)) {
+        scope << [(RNAME) : []]
+      }
+      scope[RNAME] << ["name" : QNAME, "value" : [ alnStart, alnEnd ]]
     }
-    scope[RNAME] << ["name" : QNAME, "value" : [ alnStart, alnEnd ]]
   }
 }
 //GROUP TOGETHER FEATURES FROM/IN SAME BLOCK
 annotation.blocks = []
 scope.each { k, features ->
   current = [ "scope": k, "featureType": "linear", "features": []]
-  // current = [ "scope": k, "featureType": "linear", "range": [1, lengths[k]], "features": []]
-  features.each { feature ->
-    current.features << feature
-  }
+  // // current = [ "scope": k, "featureType": "linear", "range": [1, lengths[k]], "features": []]
+  current.features = features
   annotation.blocks << current
 }
 out.text = prettyPrint(toJson(annotation))
