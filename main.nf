@@ -70,19 +70,21 @@ if(params.localAssembly != "NA") {
     key = 'gtfgff3'
     // if(it.containsKey(key)) {
     //IF MORE THAN ONE ANNOTATION PER GENOME
-    if(it.pep instanceof Map) { // && it.containsKey(key) && it.get(key) instanceof Map) {
-      it.pep.each {id, pep ->
-      // println(id+" -> "+pep)
-        clone = it.clone()
-        clone.annotation = id
-        gtfgff3 = (it.containsKey(key) && it.get(key).containsKey(id)) ? file(it.get(key).get(id)) : null
-          localInput << [clone,gtfgff3,file(pep)]
-      }
-    } else { //if (!(it.pep instanceof Map) && !(it.get(key) instanceof Map)){
-      gtfgff3 = it.containsKey(key) ? file(it.get(key)) : null
+    if(it.containsKey("pep")) {
+      if(it.pep instanceof Map) { // && it.containsKey(key) && it.get(key) instanceof Map) {
+        it.pep.each {id, pep ->
+        // println(id+" -> "+pep)
+          clone = it.clone()
+          clone.annotation = id
+          gtfgff3 = (it.containsKey(key) && it.get(key).containsKey(id)) ? file(it.get(key).get(id)) : null
+            localInput << [clone,gtfgff3,file(pep)]
+        }
+      } else { //if (!(it.pep instanceof Map) && !(it.get(key) instanceof Map)){
+        gtfgff3 = it.containsKey(key) ? file(it.get(key)) : null
         localInput << [it,gtfgff3,file(it.pep)]
-      // } else {
-      //   exitOnInputMismatch(it)
+        // } else {
+        //   exitOnInputMismatch(it)
+      }
     }
     //ALL SHOULD HAVE AN INDEX
     if(it.containsKey("idx")) {
@@ -163,7 +165,7 @@ process alignMarkers {
   label 'minimap2'
   tag {"${refmeta} <- ${markersmeta}"}
   input:
-    set val(refmeta), file(ref), val(markersmeta), file(markers) from remoteGenomeSeqs.mix(localGenomeSeqs).combine(markerSetsChannel)
+    set val(refmeta), file(ref), val(markersmeta), file(markers) from remoteGenomeSeqs.mix(localGenomeSeqs).combine(markerSetsChannel) // <=========
 
   output:
     set val(outmeta), file('*.sam') into alignedMarkersChannel
@@ -177,20 +179,24 @@ process alignMarkers {
 
 // alignedMarkersChannel.view { it -> groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(it))}
 
-process generateFeaturesFromMarkerAlignemtnsJSON {
-  executor 'local'
+process generateFeaturesFromMarkerAlignmentsJSON {
   tag { tag }
   label 'groovy'
+  label 'json'
 
   input:
-    set val(meta), file(sam) from alignedMarkersChannel.first()
+    set val(meta), file(sam) from alignedMarkersChannel
+
+  output:
+    file "*.json.gz"
+    file "*.counts" into markersCounts
 
   script:
   tag=[meta.ref.species, meta.ref.version, meta.markers.name].join('_')
   genome=getDatasetTagFromMeta(meta.ref) //parent
   //shortName = (meta.ref.containsKey("shortName") ? meta.ref.shortName+"_"+meta.markers.name : "")
 
-  println(groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(meta)))
+  // println(groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(meta)))
 
   template 'sam2pretzel.groovy'
   // """
@@ -250,10 +256,10 @@ process generateGenomeBlocksJSON {
 
 
 /*
-* Given a FASTA with representative peps and the corresponding gtfgff3
-* output FASTA with representative peps and definition lines
-* mimicking the ensembl plants (EP) format for such data - this can then
-* be piped into the same processes which we use for chewing through EP data
+ Given a FASTA with representative peps and the corresponding gtfgff3
+ output FASTA with representative peps and definition lines
+ mimicking the ensembl plants (EP) format for such data - this can then
+ be piped into the same processes which we use for chewing through EP data
 */
 process convertReprFasta2EnsemblPep {
   tag{tag}
@@ -517,6 +523,7 @@ process stats {
     file('*') from genomeBlocksStats.collect()
     file('*') from featuresCounts.collect()
     file('*') from aliasesCounts.collect()
+    file('*') from markersCounts.collect()
 
   output:
     file('*') into outstats
@@ -525,6 +532,7 @@ process stats {
   """
   jq -r  '.blocks[] | (input_filename, .scope, .range[1])' *_genome.json | paste - - - | sort -V > blocks.counts
   cat *_annotation.counts | sort -V > feature.counts
+  cat *_markers.counts | sort -V > markers.counts
   grep "" *_aliases.len > aliases.counts
   """
   //jq '.blocks[]' ${f} | jq 'input_filename, .scope, (.features | length)' | paste - - | sort -V

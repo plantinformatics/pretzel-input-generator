@@ -3,13 +3,18 @@
 import static groovy.json.JsonOutput.*
 
 samContent = new File('${sam}').text
-out = new File('${tag}.json')
+out = new File('${tag}_markers.json')
+counts = new File('${tag}_markers.counts')
 
 //AGGREGATE DATA MAP
 def annotation = [:]
 annotation.meta = [:]
 
-annotation.name = "${tag}"
+annotation.'public' = true
+annotation.name = "${tag}_markers"
+annotation.namespace = "${tag}"
+annotation.parent = "${genome}"
+annotation.meta.shortName = "${meta.markers.name}"
 
 TreeMap scope = [:] //keep keys sorted as the corresponding blocks get displayed in order in pretzel
 samContent.eachLine { line ->
@@ -33,10 +38,11 @@ samContent.eachLine { line ->
       int alnStart = POS.toInteger() //- getStartClip(cigar)
       int alnEnd = alnStart + getAlignmentLength(cigar)-1 //Get aln len from CIGAR string
 
-      if(!scope.containsKey(RNAME)) {
-        scope << [(RNAME) : []]
+      def key = RNAME.replaceFirst("^(C|c)(H|h)(R|r)[_]?","")
+      if(!scope.containsKey(key)) {
+        scope << [(key) : []]
       }
-      scope[RNAME] << ["name" : QNAME, "value" : [ alnStart, alnEnd ]]
+      scope[key] << ["name" : QNAME, "value" : [ alnStart, alnEnd ]]
     }
   }
 }
@@ -48,8 +54,14 @@ scope.each { k, features ->
   current.features = features
   annotation.blocks << current
 }
+//RECORD NUM FEATURS PER BLOCK
+counts.withWriterAppend{ wr ->
+  annotation.blocks.each {
+    wr.println annotation.name+"\\t"+it.scope+"\\t"+it.features.size()
+  }
+}
 out.text = prettyPrint(toJson(annotation))
-
+'gzip ${tag}_markers.json'.execute()
 
 def int getAlignmentLength(String cigar) {
   int len = 0
