@@ -165,16 +165,46 @@ process alignMarkers {
   label 'minimap2'
   tag {"${refmeta} <- ${markersmeta}"}
   input:
-    set val(refmeta), file(ref), val(markersmeta), file(markers) from remoteGenomeSeqs.mix(localGenomeSeqs).combine(markerSetsChannel) // <=========
+    set val(refmeta), file(ref), val(markersmeta), file(markers) from remoteGenomeSeqs.mix(localGenomeSeqs).combine(markerSetsChannel).first() // <=========
 
   output:
-    set val(outmeta), file('*.sam') into alignedMarkersChannel
+    set val(outmeta), file('*.paf') into alignedMarkersChannel
 
   script:
   outmeta = [ref: refmeta, markers: markersmeta]
   """
-  minimap2 -a -x sr -I ${task.memory.toGiga()}G -t ${task.cpus} ${ref} ${markers} > ${markers}_vs_${ref}.sam
+  minimap2 -x sr \
+  --secondary=yes \
+  --cs=long \
+  -I 30G -t ${task.cpus} ${ref} ${markers} > ${markers}_vs_${ref}.paf
   """
+  /*
+  Breakdown of -x sr Short single-end reads without splicing i.e.:
+   -k21 Minimizer k-mer length [15]
+   -w11 Minimizer window size [2/3 of k-mer length]. A minimizer is the smallest k-mer in a window of w consecutive k-mers.
+   --sr Enable short-read alignment heuristics. In the short-read mode, minimap2 applies a second round of chaining with a higher minimizer occurrence threshold if no good chain is found. In addition, minimap2 attempts to patch gaps between seeds with ungapped alignment.
+
+   -A2 Matching score [2]
+   -B8 Mismatching penalty [4]
+   -O12,32 Gap open penalty [4,24]. If INT2 is not specified, it is set to INT1.
+   -E2,1 Gap extension penalty [2,1]. A gap of length k costs min{O1+k*E1,O2+k*E2}. In the splice mode, the second gap penalties are not used.
+   -r50 Bandwidth used in chaining and DP-based alignment [500]. This option approximately controls the maximum gap size.
+   -p.5 Minimal secondary-to-primary score ratio to output secondary mappings [0.8]. Between two chains overlaping over half of the shorter chain (controlled by -M), the chain with a lower score is secondary to the chain with a higher score. If the ratio of the scores is below FLOAT, the secondary chain will not be outputted or extended with DP alignment later. This option has no effect when -X is applied.
+   -N20 Output at most INT secondary alignments [5]. This option has no effect when -X is applied.
+   -f1000,5000 If fraction, ignore top FLOAT fraction of most frequent minimizers [0.0002]. If integer, ignore minimizers occuring more than INT1 times. INT2 is only effective in the --sr or -xsr mode, which sets the threshold for a second round of seeding.
+   -n2 Discard chains consisting of <INT number of minimizers [3]
+   -m20 Discard chains with chaining score <INT [40]. Chaining score equals the approximate number of matching bases minus a concave gap penalty. It is computed with dynamic programming.
+   -s40 Minimal peak DP alignment score to output [40]. The peak score is computed from the final CIGAR. It is the score of the max scoring segment in the alignment and may be different from the total alignment score.
+   -g200 Stop chain enlongation if there are no minimizers within INT-bp [10000].
+   -2 Use two I/O threads during mapping. By default, minimap2 uses one I/O thread. When I/O is slow (e.g. piping to gzip, or reading from a slow pipe), the I/O thread may become the bottleneck. Apply this option to use one thread for input and another thread for output, at the cost of increased peak RAM.
+   -K50m Number of bases loaded into memory to process in a mini-batch [500M]. Similar to option -I, K/M/G/k/m/g suffix is accepted. A large NUM helps load balancing in the multi-threading mode, at the cost of increased memory.
+   --heap-sort=yes 	If yes, sort anchors with heap merge, instead of radix sort. Heap merge is faster for short reads, but slower for long reads. [no]
+   --secondary=no Whether to output secondary alignments [yes]
+
+
+   //IRRELEVANT FOR MARKERS AS CURRENTLY SET UP
+   --frag=yes Whether to enable the fragment mode [no] ?????
+   */
 }
 
 // alignedMarkersChannel.view { it -> groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(it))}
@@ -185,10 +215,10 @@ process generateFeaturesFromMarkerAlignmentsJSON {
   label 'json'
 
   input:
-    set val(meta), file(sam) from alignedMarkersChannel
+    set val(meta), file(paf) from alignedMarkersChannel
 
   output:
-    file "*.json.gz"
+    file "*.json.gz" into markersJSON
     file "*.counts" into markersCounts
 
   script:
@@ -198,7 +228,7 @@ process generateFeaturesFromMarkerAlignmentsJSON {
 
   // println(groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(meta)))
 
-  template 'sam2pretzel.groovy'
+  template 'paf2pretzel.groovy'
   // """
 
   // """
@@ -505,6 +535,7 @@ process pack {
     file('*') from genomeBlocksJSON.collect()
     file('*') from featuresJSON.collect()
     file('*') from aliasesJSON.collect()
+    file('*') from markersJSON.collect()
 
   output:
     file('*') into targzJSON

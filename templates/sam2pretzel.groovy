@@ -42,7 +42,11 @@ samContent.eachLine { line ->
       if(!scope.containsKey(key)) {
         scope << [(key) : []]
       }
-      scope[key] << ["name" : QNAME, "value" : [ alnStart, alnEnd ]]
+      scope[key] << [
+        "name" : QNAME,
+        "value" : [ alnStart, alnEnd ]
+      ]
+      // scope[key] << ["name" : QNAME, "value" : [ alnStart, alnEnd ]]
     }
   }
 }
