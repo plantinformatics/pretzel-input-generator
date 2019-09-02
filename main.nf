@@ -125,7 +125,7 @@ def getDatasetTagFromMeta(meta, delim = '_') {
 * Download peptide seqs and assembly index files from Ensembl plants
 */
 process fetchRemoteDataFromEnsemblPlants {
-  tag{meta}
+  tag{meta.subMap(['species','version','release'])}
   label 'download'
 
   input:
@@ -163,9 +163,9 @@ process fetchRemoteDataFromEnsemblPlants {
 
 process alignMarkers {
   label 'minimap2'
-  tag {"${refmeta} <- ${markersmeta}"}
+  tag {"${refmeta.subMap(['species','version'])} <- ${markersmeta.name}"}
   input:
-    set val(refmeta), file(ref), val(markersmeta), file(markers) from remoteGenomeSeqs.mix(localGenomeSeqs).combine(markerSetsChannel).first() // <=========
+    set val(refmeta), file(ref), val(markersmeta), file(markers) from remoteGenomeSeqs.mix(localGenomeSeqs).combine(markerSetsChannel) // <=========
 
   output:
     set val(outmeta), file('*.paf') into alignedMarkersChannel
@@ -179,6 +179,9 @@ process alignMarkers {
   -I 30G -t ${task.cpus} ${ref} ${markers} > ${markers}_vs_${ref}.paf
   """
   /*
+
+  -N 50 \ ?????
+
   Breakdown of -x sr Short single-end reads without splicing i.e.:
    -k21 Minimizer k-mer length [15]
    -w11 Minimizer window size [2/3 of k-mer length]. A minimizer is the smallest k-mer in a window of w consecutive k-mers.
@@ -332,7 +335,7 @@ process convertReprFasta2EnsemblPep {
  no longer follow this convention
 */
 process filterForRepresentativePeps {
-  tag{meta}
+  tag{meta.subMap(['species','version'])}
   label 'fastx'
   input:
     set val(meta), file(pep) from remotePepSeqs
@@ -536,12 +539,13 @@ process pack {
     file('*') from featuresJSON.collect()
     file('*') from aliasesJSON.collect()
     file('*') from markersJSON.collect()
+    file('*.counts') from outstats
 
   output:
     file('*') into targzJSON
 
   """
-  tar chzvf JSON-\$(date --iso-8601).tar.gz *.json *.json.gz
+  tar chzvf JSON-\$(date --iso-8601).tar.gz *.json *.json.gz */counts
   tar chzvf  JSON-\$(date --iso-8601)-no_LC.tar.gz *.json *.json.gz --exclude '*LC*'
   """
 }
