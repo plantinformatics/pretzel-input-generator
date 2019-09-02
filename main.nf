@@ -505,7 +505,7 @@ process generateAliasesJSON {
     set(val(metaA), val(metaB), file(paired), file(idlines)) from pairedProteins
 
   output:
-    file "${basename}_aliases.json.gz" into aliasesJSON
+    file "${basename}_aliases.json.gz" optional true into aliasesJSON
     file "${basename}_aliases.len" into aliasesCounts
     // set val(basename), file("${basename}_aliases.json") into aliasesJSON
 
@@ -520,6 +520,11 @@ process generateAliasesJSON {
     namespace2=genome2+":"+tag2+"_annotation"
     cmd = tag1 != tag2 ? "cat ${paired} " : "excludeSameChromosome.awk -vtag1=${tag1} -vtag2=${tag2} ${idlines} ${paired}"
     """
+    # No aliases if all genes on a single chromososme, same assembly
+    if [ \$(cut -f2,3 -d':' ${idlines} | sort |uniq | wc -l) -eq 1 ]; then
+      echo 0 > ${basename}_aliases.len
+      exit 0
+    fi
     #at least one of the aligned pair must meet the minCoverageFilter threshold
     ${cmd} | awk '\$3 >= ${params.minIdentityFilter} && ((\$8-\$7+1)/\$13 >= ${params.minCoverageFilter} || (\$10-\$9+1)/\$14 >= ${params.minCoverageFilter})' \
     | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} \
@@ -530,29 +535,11 @@ process generateAliasesJSON {
 }
 
 
-process pack {
-  label 'archive'
-  executor 'local'
 
-  input:
-    file('*') from genomeBlocksJSON.collect()
-    file('*') from featuresJSON.collect()
-    file('*') from aliasesJSON.collect()
-    file('*') from markersJSON.collect()
-    file('*.counts') from outstats
-
-  output:
-    file('*') into targzJSON
-
-  """
-  tar chzvf JSON-\$(date --iso-8601).tar.gz *.json *.json.gz */counts
-  tar chzvf  JSON-\$(date --iso-8601)-no_LC.tar.gz *.json *.json.gz --exclude '*LC*'
-  """
-}
 
 process stats {
-  echo true
   label 'summary'
+  label 'jq'
 
   input:
     file('*') from genomeBlocksStats.collect()
@@ -573,6 +560,26 @@ process stats {
   //jq '.blocks[]' ${f} | jq 'input_filename, .scope, (.features | length)' | paste - - | sort -V
 }
 
+
+process pack {
+  label 'archive'
+  executor 'local'
+
+  input:
+    file('*') from genomeBlocksJSON.collect()
+    file('*') from featuresJSON.collect()
+    file('*') from aliasesJSON.collect()
+    file('*') from markersJSON.collect()
+    file('*') from outstats
+
+  output:
+    file('*') into targzJSON
+
+  """
+  tar chzvf JSON-\$(date --iso-8601).tar.gz *.json *.json.gz *.counts
+  tar chzvf  JSON-\$(date --iso-8601)-no_LC.tar.gz *.json *.json.gz *.counts --exclude '*LC*'
+  """
+}
 // process alignMarkers {
 //   input:
 //     file markers from markerSetsChannel
