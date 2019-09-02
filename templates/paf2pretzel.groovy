@@ -60,8 +60,12 @@ pafContent.eachLine { line ->
         scope[key] << [
           "name" : QNAME,
           "value" : [ tstart+1, tend ],
-          "identity" : query_identity,
-          "coverage" : query_coverage
+          "evidence": [
+            "type" : "alignment",
+            "tool" : "minimap2",
+            "identity" : query_identity,
+            "coverage" : query_coverage
+          ]
         ]
       }
     }
