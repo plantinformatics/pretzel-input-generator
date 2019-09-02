@@ -26,10 +26,11 @@ for F in *_genome.json; do
   echo
 done
 ```
-## 3. Upload features (genes) definitions (compressed)
+
+## 3. Upload marker sequences and features (genes) definitions (compressed)
 
 ```
-for F in *_annotation.json.gz; do
+for F in *_{markers,annotation}.json.gz; do
   curl -X POST --header 'Content-Type: application/json' \
   --header 'Accept: application/json' -H'Content-Encoding: gzip' \
   --data-binary @${F} \
