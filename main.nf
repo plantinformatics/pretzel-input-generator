@@ -495,19 +495,20 @@ process pairProteins {
 * Generate JSON aliases linking features between chromosomes/genomes
 */
 process generateAliasesJSON {
+  // maxForks 1
   tag{basename}
   label 'json'
   label 'jq'
-  errorStrategy 'ignore'  //expecting exit status 3 if no aliases generated
-  echo 'true'
+  validExitStatus 0,3  //expecting exit status 3 if no aliases generated which is valid e.g. when dataset consisting of a single chr/block aligned to itself
+  // errorStrategy 'finish'
+  // echo 'true'
 
   input:
     set(val(metaA), val(metaB), file(paired), file(idlines)) from pairedProteins
 
   output:
-    file "${basename}_aliases.json.gz" optional true into aliasesJSON
+    file "${basename}*_aliases.json.gz" optional true into aliasesJSON
     file "${basename}_aliases.len" into aliasesCounts
-    // set val(basename), file("${basename}_aliases.json") into aliasesJSON
 
   script:
     // println(prettyPrint(toJson(metaA)))
@@ -526,12 +527,21 @@ process generateAliasesJSON {
       exit 0
     fi
     #at least one of the aligned pair must meet the minCoverageFilter threshold
+    #and we split in to max 500k chunks to limit output JSON size
     ${cmd} | awk '\$3 >= ${params.minIdentityFilter} && ((\$8-\$7+1)/\$13 >= ${params.minCoverageFilter} || (\$10-\$9+1)/\$14 >= ${params.minCoverageFilter})' \
-    | blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} \
-    | tee >(jq length >> ${basename}_aliases.len) \
-    | gzip > ${basename}_aliases.json.gz \
-    && zcat ${basename}_aliases.json | head | grep -E '[[:alnum:]]' > /dev/null || (echo "No aliases generated for ${basename}" && exit 3)
+    | split -d -l 500000 - __part \
+    && for PART in __part*; do
+      blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} \${PART} \
+      | tee >(jq length >> ${basename}_\${PART#__part}_aliases.len) \
+      | gzip > ${basename}_\${PART#__part}_aliases.json.gz
+    done \
+    && zcat ${basename}*aliases.json.gz | head | grep -E '[[:alnum:]]' > /dev/null || (echo "No aliases generated for ${basename}" && exit 3) \
+    && awk '{tot+=\$1};END{print tot}' ${basename}_*_aliases.len > ${basename}_aliases.len \
+    && if [ \$(ls -1 __part*  | wc -l) -eq 1 ]; then mv ${basename}_\${PART#__part}_aliases.json.gz ${basename}_aliases.json.gz; fi \
+    && rm __part*
     """
+        //tmp: | split -dl5 --additional-suffix '.json' - part
+    //    sed -e '1 i\[' -e '$ i\]'
 }
 
 
