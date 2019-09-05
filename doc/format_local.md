@@ -162,3 +162,20 @@ Now skip genes which are placed on scaffolds not chromosomes
 paste - - < TRIDC_WEWseq_PGSB_20160501_Proteins_HighConf_REPR_on_WEW2.0.fasta | grep -v -e scaffold -e ':\*' | tr '\t' '\n' > TRIDC_WEWseq_PGSB_20160501_Proteins_HighConf_REPR_on_WEW2.0_chromosomes.fasta
 ```
 
+
+# Oryza sativa
+
+Until EP datasets use is put in sync with local, this could be a way to ensure IRGSP annotations are processed correctly
+
+```
+fasta_formatter < Oryza_sativa.IRGSP-1.0.pep.all.fa | paste - - | filterForRepresentative.awk > Oryza_sativa.IRGSP-1.0.pep.REPR.fa
+```
+
+# Triticum aestivum IWGSC v2
+
+Lacking annotations, transplant from v1. Get genic sequences from v1:
+
+```
+< iwgsc_refseqv1.0_HighConf_2017Mar13.gff3 | awk -vFS="\t" -vOFS="\t" '$3=="gene"{split($9,a,";");split(a[1],b,"=");print $1":"$4"-"$5; print b[2] > "transplant/HC.ids"}'  | xargs samtools faidx --length 10000000 161010_Chinese_Spring_v1.0_pseudomolecules.fasta  > transplant/retrieved_HC.fa
+```
+
