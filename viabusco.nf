@@ -1,6 +1,6 @@
 #!/usr/bin/env nextflow
 
-if(!workflow.profile.contains('BUSCO')) {
+if(!workflow.profile.contains('BUSCOs')) {
   println("This workflow requires -profile BUSCOs")
   exit 1
 }
