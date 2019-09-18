@@ -81,11 +81,13 @@ annotation.name = "${basename}_${seqType}"
 annotation.namespace = basename
 annotation.parent = parent
 annotation.meta.shortName = shortName
-annotation.meta.evidence = [
-  type: "alignment",
-  tool: alignmentTool,
-  params: alignParams
-]
+if(alignTool != null && alignParams != null) {
+  annotation.meta.evidence = [
+    type: "alignment",
+    tool: alignTool,
+    params: alignParams
+  ]
+}
 
 TreeMap scope = [:] //keep keys sorted as the corresponding blocks get displayed in order in pretzel
 pafContent.eachLine { line ->

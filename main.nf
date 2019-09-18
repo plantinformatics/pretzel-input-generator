@@ -186,6 +186,9 @@ process alignToGenome {
   """
   minimap2 ${alnParams} -t ${task.cpus} ${ref} ${seqs} > ${seqs}_vs_${ref}.paf
   """
+
+  //TODO gzip/pigz --fast the output paf
+
   /*
 
   -N 50 \ ?????
@@ -218,7 +221,7 @@ process alignToGenome {
    */
 }
 
-alignedMarkersChannel.view { it -> groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(it))}
+// alignedMarkersChannel.view { it -> groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(it))}
 
 // alignedSeqsChannel.view { prettyPrint(jsonGenerator.toJson(it)) }
 
@@ -229,7 +232,7 @@ process generateFeaturesFromSeqAlignmentsJSON {
   label 'json'
 
   input:
-    set val(meta), file(paf) from alignedSeqsChannel.first()
+    set val(meta), file(paf) from alignedSeqsChannel
 
   output:
     file "*.json.gz" into placedSeqsJSON
@@ -274,7 +277,7 @@ process generateGenomeBlocksJSON {
   script:
     tag=getDatasetTagFromMeta(meta)
     """
-    #!/usr/bin/env groovsqueue -u $USER -o "%.18i %.9P %.60j %.8u %.8T %.10M %.9l %.6D %R %c %C %m" | column -ty
+    #!/usr/bin/env groovy
 
     import static groovy.json.JsonOutput.*
     idx = new File('${idx}').text
