@@ -46,13 +46,13 @@ fastasuffix = params.fastasuffix
 
 // def noKeyOrIsMap
 
-//LOCAL marker sets
+//LOCAL marker/contigs to place sets
 
-Channel.from(params.markers)
+Channel.from(params.sequencesToPlace)
 .map {
   [it, file(it.fasta)]
 }
-.set{ markerSetsChannel }
+.set{ sequencesToPlaceChannel }
 
 //LOCAL INPUTS
 localInput = Channel.create()
@@ -161,22 +161,30 @@ process fetchRemoteDataFromEnsemblPlants {
     }
 }
 
-process alignMarkers {
+
+process alignToGenome {
   label 'minimap2'
-  tag {"${refmeta.subMap(['species','version'])} <- ${markersmeta.name}"}
+  tag {"${refmeta.subMap(['species','version'])} <- ${seqsmeta.name}"}
   input:
-    set val(refmeta), file(ref), val(markersmeta), file(markers) from remoteGenomeSeqs.mix(localGenomeSeqs).combine(markerSetsChannel) // <=========
+    set val(refmeta), file(ref), val(seqsmeta), file(seqs) from remoteGenomeSeqs.mix(localGenomeSeqs).combine(sequencesToPlaceChannel) // <=========
 
   output:
-    set val(outmeta), file('*.paf') into alignedMarkersChannel
+    set val(outmeta), file('*.paf') into alignedSeqsChannel
+
+  when: //if target not specified place on all, otherwise check if current ref specified as target
+    !seqsmeta.containsKey('target') || seqsmeta.target.any { it.species == refmeta.species && it.version == refmeta.version }
+
 
   script:
-  outmeta = [ref: refmeta, markers: markersmeta]
+  outmeta = [ref: refmeta, seqs: seqsmeta.subMap(['name', 'seqtype'])]
+  //preset: short read OR long assembly to ref OR long, HQ spliced to ref
+  preset = seqsmeta.seqtype == 'markers' ? 'sr' : seqsmeta.seqtype == 'genomic' ? 'asm5' : 'splice:hq'
+  secondary = seqsmeta.seqtype.matches('markers|transcripts') ? 'yes' : 'no'
+  csTag = seqsmeta.seqtype == 'markers' ? '--cs=long' : '' //save space by not printing cs in non-maraker modes
+  alnParams = "-x ${preset} --secondary=${secondary} ${csTag} -I 30G"
+  outmeta.align = [tool: 'minimap2', params: alnParams]
   """
-  minimap2 -x sr \
-  --secondary=yes \
-  --cs=long \
-  -I 30G -t ${task.cpus} ${ref} ${markers} > ${markers}_vs_${ref}.paf
+  minimap2 ${alnParams} -t ${task.cpus} ${ref} ${seqs} > ${seqs}_vs_${ref}.paf
   """
   /*
 
@@ -210,31 +218,43 @@ process alignMarkers {
    */
 }
 
-// alignedMarkersChannel.view { it -> groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(it))}
+alignedMarkersChannel.view { it -> groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(it))}
 
-process generateFeaturesFromMarkerAlignmentsJSON {
+// alignedSeqsChannel.view { prettyPrint(jsonGenerator.toJson(it)) }
+
+
+process generateFeaturesFromSeqAlignmentsJSON {
   tag { tag }
   label 'groovy'
   label 'json'
 
   input:
-    set val(meta), file(paf) from alignedMarkersChannel
+    set val(meta), file(paf) from alignedSeqsChannel.first()
 
   output:
-    file "*.json.gz" into markersJSON
+    file "*.json.gz" into placedSeqsJSON
     file "*.counts" into markersCounts
 
   script:
-  tag=[meta.ref.species, meta.ref.version, meta.markers.name].join('_')
+  tag=[meta.ref.species, meta.ref.version, meta.seqs.name].join('_')
   genome=getDatasetTagFromMeta(meta.ref) //parent
   //shortName = (meta.ref.containsKey("shortName") ? meta.ref.shortName+"_"+meta.markers.name : "")
 
   // println(groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(meta)))
 
-  template 'paf2pretzel.groovy'
-  // """
-
-  // """
+  // template 'paf2pretzel.groovy'
+  """
+  paf2pretzel.groovy \
+    --paf ${paf} \
+    --parent ${genome} \
+    --sequence-type ${meta.seqs.seqtype} \
+    --base-name ${tag} \
+    --short-name ${meta.seqs.name} \
+    --align-tool ${meta.align.tool} \
+    --align-params "${meta.align.params}" \
+    --output ${tag}_${meta.seqs.seqtype}.json.gz \
+    --out-counts ${tag}_${meta.seqs.seqtype}.counts
+  """
 }
 
 /*
@@ -254,7 +274,7 @@ process generateGenomeBlocksJSON {
   script:
     tag=getDatasetTagFromMeta(meta)
     """
-    #!/usr/bin/env groovy
+    #!/usr/bin/env groovsqueue -u $USER -o "%.18i %.9P %.60j %.8u %.8T %.10M %.9l %.6D %R %c %C %m" | column -ty
 
     import static groovy.json.JsonOutput.*
     idx = new File('${idx}').text
@@ -579,7 +599,7 @@ process pack {
     file('*') from genomeBlocksJSON.collect()
     file('*') from featuresJSON.collect()
     file('*') from aliasesJSON.collect()
-    file('*') from markersJSON.collect()
+    file('*') from placedSeqsJSON.collect()
     file('*') from outstats
 
   output:
@@ -590,40 +610,4 @@ process pack {
   tar chzvf  JSON-\$(date --iso-8601)-no_LC.tar.gz *.json *.json.gz *.counts --exclude '*LC*'
   """
 }
-// process alignMarkers {
-//   input:
-//     file markers from markerSetsChannel
 
-//   """
-//   minimap2 -a -x sr -I 20G -t 20  161010_Chinese_Spring_v1.0_p
-// seudomolecules.fasta 90kSNPprobes.seq.fasta > 90kSNPprobes.seq.fasta_vs_161010_Chinese_Spring_v1.0_pseudomolecules.sam
-//   """
-// }
-
-// process mergeAliasesJSON {
-//   label 'json'
-//   tag{out}
-
-//   input:
-//     val tuple from aliasesJSON.groupTuple() //basename followed by a list of one or more *_alisaes.json file names
-
-//   output:
-//     file "*"
-
-//   script:
-//     out=tuple[0]
-//     files=tuple[1].join(" ")
-//     if(tuple[1].size() < 2) {
-//       """
-//       cp --preserve=links ${files} ${out}_aliases.json
-//       """
-//     } else {
-//       """
-//       echo "[" > ${out}_aliases.json
-//       for f in ${files}; do
-//         sed '1d;\$d' \${f} | sed 's/}\$/},/'
-//       done | sed '\$d' >> ${out}_aliases.json
-//       echo -e "    }\n]" >> ${out}_aliases.json
-//       """
-//     }
-// }
