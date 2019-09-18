@@ -179,3 +179,14 @@ Lacking annotations, transplant from v1. Get genic sequences from v1:
 < iwgsc_refseqv1.0_HighConf_2017Mar13.gff3 | awk -vFS="\t" -vOFS="\t" '$3=="gene"{split($9,a,";");split(a[1],b,"=");print $1":"$4"-"$5; print b[2] > "transplant/HC.ids"}'  | xargs samtools faidx --length 10000000 161010_Chinese_Spring_v1.0_pseudomolecules.fasta  > transplant/retrieved_HC.fa
 ```
 
+# Legacy datasets
+
+## Triticum aestivum IWGSC CSS v2
+
+Source files from https://urgi.versailles.inra.fr/download/iwgsc/Survey_sequence/
+
+```
+for F in *fa.gz; do base=${F##*/}; prefix=${base%%-*}; zcat $F | sed -E "s/>([0-9]+).*/>${prefix/_v2/}_\1/"; done > contigs/IWGSC_CSSv2.fa
+```
+
+## Triticum aestivum IWGSC CSS v3
