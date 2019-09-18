@@ -39,7 +39,9 @@ pafContent.eachLine { line ->
 
     if(query_identity >= min_identity) {
       def kosher = true;
-      if(query_identity < 1) { //Not a 100% match, check if any MM in last 3 bases
+      if(!(TNAME.toLowerCase() ==~ /^(chr(omosome)?)?(_)?([0-9]+|x|y).*/)) {
+        kosher = false //don't report placement on plasmid or other non-pseudomolecule parts of assembly
+      } else if(query_identity < 1) { //Not a 100% match, check if any MM in last 3 bases
         TAGS.each { tag ->
           if(tag.startsWith('cs:Z')) {
             if(STRAND == '-' && (tag =~ /^cs:Z:=[acgtnACGTN]{3,}/).count == 0){
@@ -80,10 +82,17 @@ scope.each { k, features ->
   annotation.blocks << current
 }
 //RECORD NUM FEATURS PER BLOCK
+def total = 0;
 counts.withWriterAppend{ wr ->
   annotation.blocks.each {
     wr.println annotation.name+"\\t"+it.scope+"\\t"+it.features.size()
+    total += it.features.size()
   }
+}
+if(total == 0) {
+  System.err.println('Zero markers placed, terminating')
+  Systsem.exit(2)
 }
 out.text = prettyPrint(toJson(annotation))
 ('gzip ${tag}_markers.json'.execute()).waitFor()
+
