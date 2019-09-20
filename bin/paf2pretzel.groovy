@@ -163,7 +163,26 @@ if(total == 0) {
   System.err.println('Zero sequences placed, terminating')
   Systsem.exit(2)
 }
-out.text = prettyPrint(toJson(annotation))
+
 if(output.endsWith('.gz')) {
-  ('gzip ${output}'.execute()).waitFor()
+  boolean append = false
+  int BUFFER_SIZE = 8192
+  Writer writer = new BufferedWriter(new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(out, append)), "UTF-8"), BUFFER_SIZE);
+  try {
+  writer.write(prettyPrint(toJson(annotation)))
+    } catch (FileNotFoundException ex) {
+    ex.printStackTrace();
+    } catch (InterruptedException ex) {
+      ex.printStackTrace();
+    } catch (IOException ex) {
+      ex.printStackTrace();
+    } finally {
+      try {
+          writer.close();
+      } catch (IOException ex) {
+        ex.printStackTrace();
+      }
+    }
+} else {
+  out.text = prettyPrint(toJson(annotation))
 }
