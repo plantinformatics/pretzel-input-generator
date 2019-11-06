@@ -1,0 +1,74 @@
+#!/usr/bin/env python
+from __future__ import print_function
+from collections import OrderedDict
+import argparse, sys, os, json
+
+
+def eprint(*args, **kwargs):
+  print(*args, file=sys.stderr, **kwargs)
+
+parser = argparse.ArgumentParser(prog=os.path.basename(__file__),
+  formatter_class=lambda prog: argparse.HelpFormatter(prog,max_help_position=60),
+  description="Convert \"similarity\" features from gff to a Pretzel data set JSON")
+parser.add_argument('-i', '--infile', nargs='?', type=argparse.FileType('r'),
+  default=sys.stdin, help='provide input file name or use stdin')
+parser.add_argument('-o', '--outfile', nargs='?', type=argparse.FileType('w'),
+  default=sys.stdout, help='provide output file name or use stdout')
+parser.add_argument('--make-private', action="store_true", 
+  default=False, help='"Make output dataset private (is public by default)"')
+parser.add_argument('--parent', required=True, help='Parent data set name')
+parser.add_argument('--name',  required=True, help='Dataset name')
+parser.add_argument('--namespace',  required=True, help='Dataset namespace')
+parser.add_argument('--short-name',  required=True, help='Dataset shortName')
+# parser.add_argument('--', nargs='?', help='')
+
+args = parser.parse_args()
+
+annotation = OrderedDict()
+
+annotation['name'] = args.name #"${basename}_${seqType}"
+annotation['namespace'] = args.namespace
+annotation['parent'] = args.parent
+annotation['public'] = not args.make_private
+annotation['meta'] = {}
+annotation['meta']['shortName'] = args.short_name
+
+scope = OrderedDict()
+
+for line in args.infile:
+  toks = line.split()
+  chr = toks[0]
+  #strip prefix
+  if chr.lower().startswith("chr"):
+    chr = chr[3:]
+  #First time seeing a block?
+  if chr not in scope:
+    scope[chr] = []
+  #Extract feature id
+  attributes = OrderedDict(s.split('=') for s in toks[8].split(';')) 
+  #Add feature to block
+  scope[chr].append(OrderedDict([
+    ("name", attributes["Name"]),
+    ("value", [ toks[3], toks[4] ]),
+    ("evidence", OrderedDict([
+      ("identity", attributes["identity"]),
+      ("coverage", attributes["coverage"])
+    ]))
+  ]))
+
+annotation['blocks'] = []
+for key in scope:
+  current = OrderedDict( [("scope", key), ("featureType", "linear"), ("features", OrderedDict())] )
+  current['features'] = scope[key]
+  annotation['blocks'].append(current)
+
+#sort blocks
+annotation['blocks'] = sorted(annotation['blocks'],  key=lambda block : block['scope'])
+
+for block in annotation['blocks']:  
+  #sort by start position in block
+  block['features'] = sorted(block['features'],  key=lambda loc : int(loc['value'][0]))
+
+
+json.dump(annotation, args.outfile, indent=2)
+args.outfile.close()
