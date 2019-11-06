@@ -1,4 +1,5 @@
-#!/usr/bin/env python
+#!/usr/bin/env python3
+
 from __future__ import print_function
 from collections import OrderedDict
 import argparse, sys, os, json
@@ -19,8 +20,10 @@ parser.add_argument('--make-private', action="store_true",
 parser.add_argument('--parent', required=True, help='Parent data set name')
 parser.add_argument('--name',  required=True, help='Dataset name')
 parser.add_argument('--namespace',  required=True, help='Dataset namespace')
-parser.add_argument('--short-name',  required=True, help='Dataset shortName')
-# parser.add_argument('--', nargs='?', help='')
+parser.add_argument('--short-name', help='Dataset shortName')
+parser.add_argument('--source', help='Source of the dataset')
+parser.add_argument('--citation', help='Source of the dataset')
+
 
 args = parser.parse_args()
 
@@ -30,8 +33,13 @@ annotation['name'] = args.name #"${basename}_${seqType}"
 annotation['namespace'] = args.namespace
 annotation['parent'] = args.parent
 annotation['public'] = not args.make_private
-annotation['meta'] = {}
-annotation['meta']['shortName'] = args.short_name
+annotation['meta'] = OrderedDict()
+if args.short_name is not None:
+  annotation['meta']['shortName'] = args.short_name
+if args.source is not None:
+  annotation['meta']['source'] = args.source
+if args.citation is not None:
+  annotation['meta']['citation'] = args.citation
 
 scope = OrderedDict()
 
