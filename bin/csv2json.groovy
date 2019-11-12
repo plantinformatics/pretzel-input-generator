@@ -73,7 +73,7 @@ try {
         if(!scope.containsKey(key)) {
           scope << [(key) : []]
         }
-        scope[key] << ["name" : MARKER, "value" : position]
+        scope[key] << ["name" : MARKER, "value" : [position]]
       }
 
   }
