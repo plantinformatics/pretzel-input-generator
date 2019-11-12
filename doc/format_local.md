@@ -189,4 +189,59 @@ Source files from https://urgi.versailles.inra.fr/download/iwgsc/Survey_sequence
 for F in *fa.gz; do base=${F##*/}; prefix=${base%%-*}; zcat $F | sed -E "s/>([0-9]+).*/>${prefix/_v2/}_\1/"; done > contigs/IWGSC_CSSv2.fa
 ```
 
+Gene predictions - extract genomic sequences (including with introns) but no additional  up/down stream sequence to preserve coordinates.
+
+```
+awk -vOFS="\t" 'NR>1{split($3,arr,"_"); gsub(/\[[-+]\]/,"",$4); print $1,toupper(arr[3])"_"arr[5]":"$4}' survey_sequence_gene_models_MIPS_v2.2_Jul2014/ta_IWGSC_MIPSv2.2_HighConf_REPR_2014Jul18.tab | tee models.info | cut -f2 | xargs samtools faidx ../contigs/IWGSC_CSSv2.fa | fasta_formatter | paste - - > genic.tmp
+paste models.info genic.tmp | awk '{gsub(/>/,"",$3); if($2==$3)print ">"$1"\n"$4}' > ta_IWGSC_MIPSv2.2_HighConf_REPR_genic.fasta
+```
+
+
+
 ## Triticum aestivum IWGSC CSS v3
+
+
+## Ad-hoc processing of pre-computed gffs 
+
+```
+bin/gff_2_pretzel.py \
+  --infile markers/bristol_SNP.summary.gff \
+  --name Triticum_aestivum_IWGSC_RefSeq_v1.0_bristolSNP_markers \
+  --namespace bristolSNP \
+  --short-name bristolSNP \
+  --parent Triticum_aestivum_IWGSC_RefSeq_v1.0 \
+  --source 'https://urgi.versailles.inra.fr/download/iwgsc/IWGSC_RefSeq_Annotations/v1.0/' \
+  --citation https://doi.org/10.1126/science.aar7191 | pigz -11cp2 > markers/bristol_SNP.json.gz
+```
+
+Selected subset
+
+```
+for F in {DArT,axiom_820k,iSelect,bristol_SNP}*.summary.gff; do
+  NAME=${F%*.summary.gff}
+  echo ${NAME}
+  time ./gff_2_pretzel.py \
+  --infile ${F} \
+  --name Triticum_aestivum_IWGSC_RefSeq_v1.0_${NAME}_markers \
+  --namespace ${NAME} \
+  --short-name ${NAME} \
+  --parent Triticum_aestivum_IWGSC_RefSeq_v1.0 \
+  --source 'https://urgi.versailles.inra.fr/download/iwgsc/IWGSC_RefSeq_Annotations/v1.0/' \
+  --citation https://doi.org/10.1126/science.aar7191 | pigz -9cp2 > ${NAME}_markers.json.gz
+done
+```
+
+Axiom 35k is a subset of 820k (https://www.cerealsdb.uk.net/cerealgenomics/CerealsDB/)
+
+```
+F=axiom_820k.summary.gff
+NAME=axiom_35k
+time fgrep -wf <(cut -f8 35k_probe_set_IWGSCv1.tsv | tail -n+2) axiom_820k.summary.gff \
+| ./gff_2_pretzel.py \
+  --name Triticum_aestivum_IWGSC_RefSeq_v1.0_${NAME}_markers \
+  --namespace ${NAME} \
+  --short-name ${NAME} \
+  --parent Triticum_aestivum_IWGSC_RefSeq_v1.0 \
+  --source 'https://urgi.versailles.inra.fr/download/iwgsc/IWGSC_RefSeq_Annotations/v1.0/' \
+  --citation https://doi.org/10.1126/science.aar7191 | pigz -9cp2 > ${NAME}_markers.json.gz
+```
