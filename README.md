@@ -1,5 +1,7 @@
 [![Latest GitHub tag](https://img.shields.io/github/tag/plantinformatics/pretzel-input-generator.svg?label=latest%20release&logo=github&style=for-the-badge)](https://github.com/plantinformatics/pretzel-input-generator/releases)
 
+[![GitHub commits since latest release](https://img.shields.io/github/commits-since/plantinformatics/pretzel-input-generator/latest.svg?style=for-the-badge&logo=github)](https://github.com/plantinformatics/pretzel-input-generator/releases)
+
 Note that this description lacks detail which will be added in future releases.
 
 # Pipeline overview
