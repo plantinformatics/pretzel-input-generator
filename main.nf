@@ -164,6 +164,7 @@ process fetchRemoteDataFromEnsemblPlants {
 
 process alignToGenome {
   label 'minimap2'
+
   tag {"${refmeta.subMap(['species','version'])} <- ${seqsmeta.name}"}
   input:
     set val(refmeta), file(ref), val(seqsmeta), file(seqs) from remoteGenomeSeqs.mix(localGenomeSeqs).combine(sequencesToPlaceChannel) // <=========
@@ -230,13 +231,14 @@ process generateFeaturesFromSeqAlignmentsJSON {
   tag { tag }
   label 'groovy'
   label 'json'
+  label 'mem'
 
   input:
     set val(meta), file(paf) from alignedSeqsChannel
 
   output:
     file "*.json.gz" into placedSeqsJSON
-    file "*.counts" into markersCounts
+    file "*.counts" into placedSeqsCounts
 
   script:
   tag=[meta.ref.species, meta.ref.version, meta.seqs.name].join('_')
@@ -578,7 +580,7 @@ process stats {
     file('*') from genomeBlocksStats.collect()
     file('*') from featuresCounts.collect()
     file('*') from aliasesCounts.collect()
-    file('*') from markersCounts.collect()
+    file('*') from placedSeqsCounts.collect()
 
   output:
     file('*') into outstats
