@@ -131,7 +131,7 @@ process fetchRemoteDataFromEnsemblPlants {
   label 'download'
 
   input:
-    set val(species), val(version), val(shortName), val(eprelease) from Channel.from(params.remoteAssembly).filter { params.localAssembly != "NA" }
+    set val(species), val(version), val(shortName), val(eprelease) from Channel.from(params.remoteAssembly).filter { params.remoteAssembly != "NA" }
 
   output:
     set val(meta), file("${basename}.idx") into remoteIndices
