@@ -111,7 +111,7 @@ pafContent.eachLine { line ->
 
     if(query_identity >= minIdentity) {
       def kosher = true;
-      if(!(TNAME.toLowerCase() ==~ /^(chr(omosome)?)?(_)?([0-9]+|x|y).*/)) {
+      if(!(TNAME.toLowerCase() ==~ /^(chr(omosome)?)?(_)?([0-9]+|x|y|i|v)).*/)) {
         kosher = false //don't report placement on plasmid or other non-pseudomolecule parts of assembly
       } else if(markerMode && query_identity < 1) { //Not a 100% match, so for markers we check if no MM in last 3 bases - if notMarkerMode the required tag may not be present
         TAGS.each { tag ->

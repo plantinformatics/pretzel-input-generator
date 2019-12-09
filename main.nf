@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
-if(!workflow.profile.contains('EP')) {
-  println("This workflow requires -profile EP to be specified")
+if(workflow.profile.contains('BUSCOs')) {
+  println("This workflow is not compatible with the BUSCOs profile")
   exit 1
 }
 
@@ -49,6 +49,7 @@ fastasuffix = params.fastasuffix
 //LOCAL marker/contigs to place sets
 
 Channel.from(params.sequencesToPlace)
+.filter { params.sequencesToPlace != "NA" } 
 .map {
   [it, file(it.fasta)]
 }
@@ -126,7 +127,7 @@ def getDatasetTagFromMeta(meta, delim = '_') {
 /*
 * Download peptide seqs and assembly index files from Ensembl plants
 */
-process fetchRemoteDataFromEnsemblPlants {
+process fetchRemoteDataFromEnsembl {
   tag{meta.subMap(['species','version','release'])}
   label 'download'
 
@@ -305,7 +306,7 @@ process generateGenomeBlocksJSON {
     genome.meta << ["type" : "Genome"]
     genome.blocks = []
     idx.eachLine { line ->
-      if(line.toLowerCase() =~ /^(chr|[0-9]|x|y)/ ) {
+      if(line.toLowerCase() =~ /^(chr|[0-9]{1,2}|x|y|i|v)/ ) {
         toks = line.split('\t')
         genome.blocks += [ "scope": toks[0].replaceFirst("^(C|c)(H|h)(R|r)[_]?",""), "featureType": "linear", "range": [1, toks[1].toInteger()] ]
       }
@@ -323,7 +324,7 @@ process generateGenomeBlocksJSON {
 */
 process convertReprFasta2EnsemblPep {
   tag{tag}
-  label 'fastx'
+  // label 'fastx'
 
   input:
     //val arr from localInput
@@ -363,7 +364,7 @@ process convertReprFasta2EnsemblPep {
 */
 process filterForRepresentativePeps {
   tag{meta.subMap(['species','version'])}
-  label 'fastx'
+  // label 'fastx'
   input:
     set val(meta), file(pep) from remotePepSeqs
 
@@ -435,7 +436,7 @@ process generateFeaturesJSON {
         gene = toks[3].split(":")
         key = location[2].replaceFirst("^(C|c)(H|h)(R|r)[_]?","")
         //Skip non-chromosome blocks
-        if(key.toLowerCase() =~ /^(chr|[0-9]|x|y)/ ) {
+        if(key.toLowerCase() =~ /^(chr|[0-9]|x|y|i|v)/ ) {
           if(!scope.containsKey(key)) {
             scope << [(key) : []]
           }
