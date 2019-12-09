@@ -121,6 +121,8 @@ def getDatasetTagFromMeta(meta, delim = '_') {
   return meta.species+delim+meta.version+(trialLines == null ? "" : delim+trialLines+delim+"trialLines")
 }
 
+
+
 /*
 * Download peptide seqs and assembly index files from Ensembl plants
 */
@@ -129,7 +131,7 @@ process fetchRemoteDataFromEnsemblPlants {
   label 'download'
 
   input:
-    set val(species), val(version), val(shortName), val(eprelease) from Channel.from(params.remoteAssembly)
+    set val(species), val(version), val(shortName), val(eprelease) from Channel.from(params.remoteAssembly).filter { params.localAssembly != "NA" }
 
   output:
     set val(meta), file("${basename}.idx") into remoteIndices
