@@ -59,7 +59,6 @@ Channel.from(params.sequencesToPlace)
 localInput = Channel.create()
 localIndices = Channel.create()
 localGenomeSeqs = Channel.create()
-if(params.localAssembly != "NA") {
   params.localAssembly.each {
      //Genome Fasta optional (?)
     if(it.containsKey("fasta")) {
@@ -93,7 +92,6 @@ if(params.localAssembly != "NA") {
     }
 
   }
-}
 localInput.close()
 localIndices.close()
 localGenomeSeqs.close()
@@ -132,7 +130,7 @@ process fetchRemoteDataFromEnsembl {
   label 'download'
 
   input:
-    set val(species), val(version), val(shortName), val(eprelease) from Channel.from(params.remoteAssembly).filter { params.remoteAssembly != "NA" }
+    set val(species), val(version), val(shortName), val(eprelease) from Channel.from(params.remoteAssembly)
 
   output:
     set val(meta), file("${basename}.idx") into remoteIndices
