@@ -181,7 +181,7 @@ process alignToGenome {
   outmeta = [ref: refmeta, seqs: seqsmeta.subMap(['name', 'seqtype'])]
   //preset: short read OR long assembly to ref OR long, HQ spliced to ref
   preset = seqsmeta.seqtype == 'markers' ? 'sr' : seqsmeta.seqtype == 'genomic' ? 'asm5' : 'splice:hq'
-  secondary = seqsmeta.seqtype.matches('markers|transcripts') ? 'yes' : 'no'
+  secondary = seqsmeta.seqtype.toLowerCase().matches('markers|transcripts|cds|orf') ? 'yes' : 'no'
   csTag = seqsmeta.seqtype == 'markers' ? '--cs=long' : '' //save space by not printing cs in non-maraker modes
   alnParams = "-x ${preset} --secondary=${secondary} ${csTag} -I 30G"
   outmeta.align = [tool: 'minimap2', params: alnParams]
@@ -232,13 +232,14 @@ process generateFeaturesFromSeqAlignmentsJSON {
   tag { tag }
   label 'groovy'
   label 'json'
-  label 'mem'
+  label 'mem'  
+  validExitStatus 0,3  //expecting exit status 3 if no features placed which is valid e.g. when no good-enough alignments found 
 
   input:
     set val(meta), file(paf) from alignedSeqsChannel
 
   output:
-    file "*.json.gz" into placedSeqsJSON
+    file "*.json.gz" optional true into placedSeqsJSON
     file "*.counts" into placedSeqsCounts
 
   script:
@@ -305,9 +306,13 @@ process generateGenomeBlocksJSON {
     genome.blocks = []
     idx.eachLine { line ->
       if(line.toLowerCase() =~ /^(chr|[0-9]{1,2}|x|y|i|v)/ ) {
-        toks = line.split('\t')
+        toks = line.split('\\t| ')
         genome.blocks += [ "scope": toks[0].replaceFirst("^(C|c)(H|h)(R|r)[_]?",""), "featureType": "linear", "range": [1, toks[1].toInteger()] ]
       }
+    }
+    if(genome.blocks.isEmpty()) {
+      System.err.println('No blocks defined for ${tag}, this may be caused by chromosome naming, terminating')
+      System.exit(2)
     }
     out.text = prettyPrint(toJson(genome))
     """
