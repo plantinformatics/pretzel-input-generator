@@ -40,7 +40,7 @@ import static picocli.CommandLine.*
 @Option(names = ["--short-name"], description = ["Short display name"])
 @Field private String shortName
 
-@Option(names = ["--sequence-type"], description = ["Input sequences type (markers|genomic)"])
+@Option(names = ["--sequence-type"], description = ["Input sequences type (markers|genomic|transcripts|cds|orf)"])
 @Field private String seqType = 'markers'
 
 @Option(names = ["--paf"], description = ["Input PAF file name"])
@@ -109,9 +109,10 @@ pafContent.eachLine { line ->
     double query_coverage =  (qend-qstart)/ QLEN.toInteger()
     // int mapq = MAPQ.toInteger()
 
+    // println "${query_identity} >= ${minIdentity} ?"
     if(query_identity >= minIdentity) {
       def kosher = true;
-      if(!(TNAME.toLowerCase() ==~ /^(chr(omosome)?)?(_)?([0-9]+|x|y|i|v)).*/)) {
+      if(!(TNAME.toLowerCase() ==~ /^(chr(omosome)?)?(_)?([0-9]+|x|y|i|v).*/)) {
         kosher = false //don't report placement on plasmid or other non-pseudomolecule parts of assembly
       } else if(markerMode && query_identity < 1) { //Not a 100% match, so for markers we check if no MM in last 3 bases - if notMarkerMode the required tag may not be present
         TAGS.each { tag ->
@@ -126,6 +127,7 @@ pafContent.eachLine { line ->
           }
         }
       }
+
       if(kosher) {
         def key = TNAME.replaceFirst("^(C|c)(H|h)(R|r)[_]?","")
         if(!scope.containsKey(key)) {
@@ -161,7 +163,7 @@ counts.withWriterAppend{ wr ->
 }
 if(total == 0) {
   System.err.println('Zero sequences placed, terminating')
-  Systsem.exit(2)
+  System.exit(3)
 }
 
 if(output.endsWith('.gz')) {
