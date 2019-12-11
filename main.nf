@@ -245,168 +245,172 @@ refsChannel3
   .set { refsWithPepChannel }
 
 /*
- Given a FASTA with representative peps and the corresponding gtfgff3
- output FASTA with representative peps and definition lines
- mimicking the ensembl plants (EP) format for such data - this can then
- be piped into the same processes which we use for chewing through EP data
+ Only keep "representative" splice form for each gene,
+ current approach selects longest transcript,
+ we previously relied on ID suffix ".1", some times "-01"
+ but some of the more recent Ensembl plants data sets
+ no longer follow this convention
 */
-process convertReprFasta2EnsemblPep {
-  tag{tag}
+process filterForRepresentativePeps {
+  tag{meta.subMap(['species','version'])}
   // label 'fastx'
-
   input:
-    tuple (val(meta), file(gtfgff3), file(reprPep)) from refsWithPepChannel.pep4Conversion
-      //.filter { meta -> meta.containsKey('pep') && (meta.containsKey('gff3') || meta.containsKey('gtf'))}
-      .map { meta ->  [ meta, file( meta.containsKey('gff3') ? meta.gff3 : meta.gtf ), file( meta.pep ) ] }
+    set val(meta), file(pep) from refsWithPepChannel.pepEnsembl
 
   output:
-    tuple val(meta), file('pep.gz') into pepSeqs4Features //, pepSeqs4Aliases1, pepSeqs4Aliases2
+    set val(meta), file("${tag}_repr.pep") into remotePepSeqs4Features, remotePepSeqs4Aliases1, remotePepSeqs4Aliases2
 
   script:
     tag=getAnnotationTagFromMeta(meta)
-    //TRIAL RUN? ONLY TAKE FIRST n LINES
-    
-    
-    cmd0 = "${reprPep}".endsWith(".gz") ? "zcat" : "cat"
-    cmd1 = "${gtfgff3}".endsWith(".gz") ? "zcat" : "cat"
-    // if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gtf\$")) {
-    if(meta.containsKey("gtf")) {
-        """
-        ${cmd0} ${reprPep} |  fasta_formatter | gtfAndRepr2ensembl_pep.awk -vversion="${meta.version}" - <(${cmd1} ${gtfgff3}) | gzip  > pep.gz
-        """
-    } else { //if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gff(3)?\$")) { //if(meta.containsKey("gff3")) {
-      // println("MATCHED gff3: "+gtfgff3)
-        """
-        ${cmd0} ${reprPep} | fasta_formatter | gff3AndRepr2ensembl_pep.awk -vversion="${meta.version}"  - <(${cmd1} ${gtfgff3}) | gzip > pep.gz
-        """
-    // } else { //ASSUMING ENSEMBL PLANTS-LIKE FORMATTED PEPTIDE FASTA
-    //   // println("NOT MATCHED gtfgff3: "+gtfgff3)
-    //     """
-    //     cp --no-dereference ${reprPep} pep
-    //     """
-    }
+    cmd = "${pep}".endsWith(".gz") ? "zcat" : "cat"
+    """
+    ${cmd} ${pep} | fasta_formatter | paste - - | filterForRepresentative.awk | gzip > ${tag}_repr.pep.gz
+    # [ -s ${tag}_repr.pep ] || (echo 'Error! Empty output file! ${tag}_repr.pep'; exit 1) #TODO update fro gz 
+    """
 }
 
+
 // /*
-//  Only keep "representative" splice form for each gene,
-//  current approach selects longest transcript,
-//  we previously relied on ID suffix ".1", some times "-01"
-//  but some of the more recent Ensembl plants data sets
-//  no longer follow this convention
+//  Given a FASTA with representative peps and the corresponding gtfgff3
+//  output FASTA with representative peps and definition lines
+//  mimicking the ensembl plants (EP) format for such data - this can then
+//  be piped into the same processes which we use for chewing through EP data
 // */
-// process filterForRepresentativePeps {
-//   tag{meta.subMap(['species','version'])}
+// process convertReprFasta2EnsemblPep { //TODO - NOT WORKING IF ENSEMB-FORMATTED INPUT (should not be used here but need to pass-through if already formatted?)
+//   tag{tag}
 //   // label 'fastx'
+
 //   input:
-//     set val(meta), file(pep) from remotePepSeqs
+//     tuple (val(meta), file(gtfgff3), file(reprPep)) from refsWithPepChannel.pep4Conversion
+//       //.filter { meta -> meta.containsKey('pep') && (meta.containsKey('gff3') || meta.containsKey('gtf'))}
+//       .map { meta ->  [ meta, file( meta.containsKey('gff3') ? meta.gff3 : meta.gtf ), file( meta.pep ) ] }
 
 //   output:
-//     set val(meta), file("${tag}_repr.pep") into remotePepSeqs4Features, remotePepSeqs4Aliases1, remotePepSeqs4Aliases2
+//     tuple val(meta), file('pep.gz') into pepSeqs4Features //, pepSeqs4Aliases1, pepSeqs4Aliases2
 
 //   script:
 //     tag=getAnnotationTagFromMeta(meta)
-//     """
-//     fasta_formatter < ${pep} | paste - - | filterForRepresentative.awk > ${tag}_repr.pep
-//     [ -s ${tag}_repr.pep ] || (echo 'Error! Empty output file! ${tag}_repr.pep'; exit 1)
-//     """
+//     //TRIAL RUN? ONLY TAKE FIRST n LINES
+    
+    
+//     cmd0 = "${reprPep}".endsWith(".gz") ? "zcat" : "cat"
+//     cmd1 = "${gtfgff3}".endsWith(".gz") ? "zcat" : "cat"
+//     // if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gtf\$")) {
+//     if(meta.containsKey("gtf")) {
+//         """
+//         ${cmd0} ${reprPep} |  fasta_formatter | gtfAndRepr2ensembl_pep.awk -vversion="${meta.version}" - <(${cmd1} ${gtfgff3}) | gzip  > pep.gz
+//         """
+//     } else { //if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gff(3)?\$")) { //if(meta.containsKey("gff3")) {
+//       // println("MATCHED gff3: "+gtfgff3)
+//         """
+//         ${cmd0} ${reprPep} | fasta_formatter | gff3AndRepr2ensembl_pep.awk -vversion="${meta.version}"  - <(${cmd1} ${gtfgff3}) | gzip > pep.gz
+//         """
+//     // } else { //ASSUMING ENSEMBL PLANTS-LIKE FORMATTED PEPTIDE FASTA
+//     //   // println("NOT MATCHED gtfgff3: "+gtfgff3)
+//     //     """
+//     //     cp --no-dereference ${reprPep} pep
+//     //     """
+//     }
 // }
 
 
-/*
-* Generate for pretzel JSON aliases linking features between chromosomes/genomes
-* Fails if JSON invalid
-*/
-process generateFeaturesJSON {
-  tag{tag}
-  label 'json'
-  label 'groovy'
-  echo true
-  errorStrategy 'terminate'
 
-  input:
-    set val(meta), file(pep) from refsWithPepChannel.pepEnsembl.mix(pepSeqs4Features)
-    // set val(meta), file(pep) from refsChannel2.map { meta -> [meta, file(meta.pep)] }
 
-  output:
-    file "*.json.gz" into featuresJSON
-    file "*.counts" into featuresCounts
+// /*
+// * Generate for pretzel JSON aliases linking features between chromosomes/genomes
+// * Fails if JSON invalid
+// */
+// process generateFeaturesJSON {
+//   tag{tag}
+//   label 'json'
+//   label 'groovy'
+//   echo true
+//   errorStrategy 'terminate'
 
-  script:
-    tag=getAnnotationTagFromMeta(meta)
-    genome=getDatasetTagFromMeta(meta)
-    shortName = (meta.containsKey("shortName") ? meta.shortName+"_genes" : "")
-    shortName +=(meta.containsKey("annotation") ? "_"+meta.annotation : "") //only for cases where multiple annotations per genome
-    // """
-    // ls -la
-    // """
-    """
-    #!/usr/bin/env groovy
+//   input:
+//     set val(meta), file(pep) from refsWithPepChannel.pepEnsembl.mix(pepSeqs4Features)
+//     // set val(meta), file(pep) from refsChannel2.map { meta -> [meta, file(meta.pep)] }
 
-    import java.util.zip.GZIPInputStream
-    import java.util.zip.GZIPOutputStream
-    import static groovy.json.JsonOutput.*
+//   output:
+//     file "*.json.gz" into featuresJSON
+//     file "*.counts" into featuresCounts
 
-    pep = new File('${pep}').text
-    out = new File('${tag}_annotation.json')
-    counts = new File('${tag}_annotation.counts')
-    def annotation = [:]
-    annotation.public = ${!params.makePrivate}
-    annotation.meta = [:]
-    if("${meta.shortName}" != "null") {
-      annotation.meta << ["shortName" : "${shortName}"]
-    }
-    if("${meta.source}" != "null") {
-      annotation.meta << ["source" : "${meta.source}"]
-    }
-    if("${meta.release}" != "null") {
-      annotation.meta << ["release" : "${meta.release}"]
-    }
-    if("${meta.citation}" != "null") {
-      annotation.meta << ["citation" : "${meta.citation}"]
-    }
-    annotation.name = "${tag}_genes"
-    annotation.namespace = "${genome}:${tag}_annotation"
-    annotation.parent = "${genome}"
-    annotation.blocks = []
-    TreeMap scope = [:] //keep keys sorted as the corresponding blocks get displayed in order in pretzel
-    def pepStream = new FileInputStream(new File('${pep}'))
-    def inStream = '${pep}'.endsWith('.gz') ? new GZIPInputStream(pepStream , 1024) : pepStream
-    def content = new BufferedReader(new InputStreamReader(inStream, "UTF-8"), 1024);
-    while ((line = content.readLine()) != null && !line.isEmpty() ) {
-    // pep.eachLine { line ->
-      if(line =~ /^>/ ) {
-        toks = line.split()
-        location = toks[2].split(":")
-        gene = toks[3].split(":")
-        key = location[2].replaceFirst("^(C|c)(H|h)(R|r)?[_]?","")
-        //Skip non-chromosome blocks
-        if(key.toLowerCase() =~ /^(ch|[0-9]|x|y|i|v)/ ) {
-          if(!scope.containsKey(key)) {
-            scope << [(key) : []]
-          }
-          scope[key] << ["name" : gene[1], "value" : [ location[3].toInteger(), location[4].toInteger() ]]
-        }
-      }
-    }
-    //GROUP TOGETHER FEATURES FROM/IN SAME BLOCK
-    scope.each { k, features ->
-      current = [ "scope": k, "featureType": "linear", "features": []]
-      features.each { feature ->
-        current.features << feature
-      }
-      annotation.blocks << current
-    }
-    //RECORD NUM FEATURS PER BLOCK
-    counts.withWriterAppend{ wr ->
-      annotation.blocks.each {
-        wr.println  annotation.name+"\\t"+it.scope+"\\t"+it.features.size()
-      }
-    }
-    //OUTPUT JSON, COMPRESS
-    out.text = prettyPrint(toJson(annotation))
-    'gzip ${tag}_annotation.json'.execute()
-    """
-}
+//   script:
+//     tag=getAnnotationTagFromMeta(meta)
+//     genome=getDatasetTagFromMeta(meta)
+//     shortName = (meta.containsKey("shortName") ? meta.shortName+"_genes" : "")
+//     shortName +=(meta.containsKey("annotation") ? "_"+meta.annotation : "") //only for cases where multiple annotations per genome
+//     // """
+//     // ls -la
+//     // """
+//     """
+//     #!/usr/bin/env groovy
+
+//     import java.util.zip.GZIPInputStream
+//     import java.util.zip.GZIPOutputStream
+//     import static groovy.json.JsonOutput.*
+
+//     pep = new File('${pep}').text
+//     out = new File('${tag}_annotation.json')
+//     counts = new File('${tag}_annotation.counts')
+//     def annotation = [:]
+//     annotation.public = ${!params.makePrivate}
+//     annotation.meta = [:]
+//     if("${meta.shortName}" != "null") {
+//       annotation.meta << ["shortName" : "${shortName}"]
+//     }
+//     if("${meta.source}" != "null") {
+//       annotation.meta << ["source" : "${meta.source}"]
+//     }
+//     if("${meta.release}" != "null") {
+//       annotation.meta << ["release" : "${meta.release}"]
+//     }
+//     if("${meta.citation}" != "null") {
+//       annotation.meta << ["citation" : "${meta.citation}"]
+//     }
+//     annotation.name = "${tag}_genes"
+//     annotation.namespace = "${genome}:${tag}_annotation"
+//     annotation.parent = "${genome}"
+//     annotation.blocks = []
+//     TreeMap scope = [:] //keep keys sorted as the corresponding blocks get displayed in order in pretzel
+//     def pepStream = new FileInputStream(new File('${pep}'))
+//     def inStream = '${pep}'.endsWith('.gz') ? new GZIPInputStream(pepStream , 1024) : pepStream
+//     def content = new BufferedReader(new InputStreamReader(inStream, "UTF-8"), 1024);
+//     while ((line = content.readLine()) != null && !line.isEmpty() ) {
+//     // pep.eachLine { line ->
+//       if(line =~ /^>/ ) {
+//         toks = line.split()
+//         location = toks[2].split(":")
+//         gene = toks[3].split(":")
+//         key = location[2].replaceFirst("^(C|c)(H|h)(R|r)?[_]?","")
+//         //Skip non-chromosome blocks
+//         if(key.toLowerCase() =~ /^(ch|[0-9]|x|y|i|v)/ ) {
+//           if(!scope.containsKey(key)) {
+//             scope << [(key) : []]
+//           }
+//           scope[key] << ["name" : gene[1], "value" : [ location[3].toInteger(), location[4].toInteger() ]]
+//         }
+//       }
+//     }
+//     //GROUP TOGETHER FEATURES FROM/IN SAME BLOCK
+//     scope.each { k, features ->
+//       current = [ "scope": k, "featureType": "linear", "features": []]
+//       features.each { feature ->
+//         current.features << feature
+//       }
+//       annotation.blocks << current
+//     }
+//     //RECORD NUM FEATURS PER BLOCK
+//     counts.withWriterAppend{ wr ->
+//       annotation.blocks.each {
+//         wr.println  annotation.name+"\\t"+it.scope+"\\t"+it.features.size()
+//       }
+//     }
+//     //OUTPUT JSON, COMPRESS
+//     out.text = prettyPrint(toJson(annotation))
+//     'gzip ${tag}_annotation.json'.execute()
+//     """
+// }
 
 
 
