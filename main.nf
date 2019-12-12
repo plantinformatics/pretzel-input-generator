@@ -189,6 +189,29 @@ process generateFeaturesFromSeqAlignmentsJSON {
   """
 }
 
+refsChannel1
+  .branch { meta -> //redirect data sets; ones without fai idx will need to have it generated
+    ready: meta.containsKey('idx')
+      [meta, file(meta.idx)]
+    faidx: meta.containsKey('fasta')
+      [meta, file(meta.fasta)]
+  }
+  .set { refs4genomeBlocks }
+
+process faidxAssembly {  
+  tag{tag}
+  label 'samtools'
+
+  input:
+    tuple val(meta), file(fasta) from refs4genomeBlocks.faidx
+  
+  script:
+    tag=getDatasetTagFromMeta(meta)
+    """
+    samtools faidx ${fasta}
+    """
+}
+
 /*
 * Generate genome blocks definitions JSON for pretzel
 */
@@ -198,7 +221,7 @@ process generateGenomeBlocksJSON {
   label 'groovy'
 
   input:
-    tuple val(meta), file(idx) from refsChannel1.map { meta -> [meta, file(meta.idx)] }
+    tuple val(meta), file(idx) from refs4genomeBlocks.ready //.mix()
 
   output:
     file "*.json" into genomeBlocksJSON, genomeBlocksStats
