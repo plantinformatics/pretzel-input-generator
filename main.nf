@@ -196,15 +196,18 @@ refsChannel1
     faidx: meta.containsKey('fasta')
       [meta, file(meta.fasta)]
   }
-  .set { refs4genomeBlocks }
+  .set { refs4genomeBlocks1 }
 
 process faidxAssembly {  
   tag{tag}
   label 'samtools'
 
   input:
-    tuple val(meta), file(fasta) from refs4genomeBlocks.faidx
+    tuple val(meta), file(fasta) from refs4genomeBlocks1.faidx
   
+  output:
+    tuple val(meta), file("${fasta}.fai") into refs4genomeBlocks2
+
   script:
     tag=getDatasetTagFromMeta(meta)
     """
@@ -221,7 +224,7 @@ process generateGenomeBlocksJSON {
   label 'groovy'
 
   input:
-    tuple val(meta), file(idx) from refs4genomeBlocks.ready //.mix()
+    tuple val(meta), file(idx) from refs4genomeBlocks1.ready.mix(refs4genomeBlocks2)
 
   output:
     file "*.json" into genomeBlocksJSON, genomeBlocksStats
@@ -253,7 +256,7 @@ process generateGenomeBlocksJSON {
     genome.meta << ["type" : "Genome"]
     genome.blocks = []
     idx.eachLine { line ->
-      if(line.toLowerCase() =~ /^(ch|[0-9]{1,2}|x|y|i|v)/ ) {
+      if(line.toLowerCase() =~ /^(ch|[0-9]{1,2}|x|y|i|v)/ || line =~ ${meta.allowedIdPattern} ) {
         toks = line.split('\\t| ')
         genome.blocks += [ "scope": toks[0].replaceFirst("^(C|c)(H|h)(R|r)[_]?",""), "featureType": "linear", "range": [1, toks[1].toInteger()] ]
       }
@@ -424,7 +427,7 @@ process generateFeaturesJSON {
         gene = toks[3].split(":")
         key = location[2].replaceFirst("^(C|c)(H|h)(R|r)?[_]?","")
         //Skip non-chromosome blocks
-        if(key.toLowerCase() =~ /^(ch|[0-9]|x|y|i|v)/ ) {
+        if(key.toLowerCase() =~ /^(ch|[0-9]|x|y|i|v)/ || key =~ ${meta.allowedIdPattern} ) {
           if(!scope.containsKey(key)) {
             scope << [(key) : []]
           }
