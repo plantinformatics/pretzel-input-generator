@@ -15,7 +15,7 @@ NR==FNR {
 }
 
 NR!=FNR {
-  if($3 =="mRNA") {
+  if($3 =="CDS") {
     gsub("\"","");
     split($9,arr,";| ");
     for(i in arr) {
@@ -25,14 +25,19 @@ NR!=FNR {
       } else if(pair[1]=="Parent") {
         gene=pair[2];
         gsub(/\.[0-9]+$/,"",gene);
+      } else if(pair[1] ~ /^protein(_source)?_id$/)  {
+        source=pair[2];
       }
     }
-    if(transcript in repr && !(gene in printed)) {
+    # print "g="gene,"t="transcript,"s="source
+    # if(transcript in repr && !(gene in printed)) { 
+    if(source in repr && !(gene in printed)) {
       #IGNORECASE=1;
       gsub(/chr_?/,"",$1);
       #IGNORECASE=0;
       printed[gene]=1;
-      print ">"transcript" pep chromosome:"version":"$1":"$4":"$5" gene:"gene"\n"repr[transcript];
+      # print ">"transcript" pep chromosome:"version":"$1":"$4":"$5" gene:"gene"\n"repr[transcript];
+      print ">"source" pep chromosome:"version":"$1":"$4":"$5" gene:"gene"\n"repr[source];
     }
   }
 }
