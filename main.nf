@@ -6,7 +6,21 @@ if(workflow.profile.contains('BUSCOs')) {
 }
 
 
-import static groovy.json.JsonOutput.*
+// import static groovy.json.JsonOutput.*
+//For pretty-printing nested maps etc
+import groovy.json.JsonGenerator 
+import groovy.json.JsonSlurper
+import groovy.json.JsonOutput
+
+//Preventing stack overflow on Path objects and other  when map -> JSON
+JsonGenerator jsonGenerator = new JsonGenerator.Options()
+                .addConverter(java.nio.file.Path) { java.nio.file.Path p, String key -> p.toUriString() }
+                .addConverter(Duration) { Duration d, String key -> d.durationInMillis }
+                .addConverter(java.time.OffsetDateTime) { java.time.OffsetDateTime dt, String key -> dt.toString() }                
+                .addConverter(nextflow.NextflowMeta) { nextflow.NextflowMeta m, String key -> m.toJsonMap() }  //incompatible with Nextflow <= 19.04.0 
+                .excludeFieldsByType(java.lang.Class) // .excludeFieldsByName('class')
+                // .excludeNulls()
+                .build()
 
 //Otherwise JSON generation triggers stackoverflow when encountering Path objects
 jsonGenerator = new groovy.json.JsonGenerator.Options()
@@ -41,7 +55,6 @@ if (params.help){
 //LOCAL marker/contigs to place sets
 
 Channel.from(params.sequencesToPlace)
-.filter { params.sequencesToPlace != "NA" } 
 .map {
   [it, file(it.fasta)]
 }
@@ -71,106 +84,110 @@ Channel.from(params.references)
   .into { refsChannel1; refsChannel2 ; refsChannel3}
 
 
-// process alignToGenome {
-//   label 'minimap2'
 
-//   tag {"${refmeta.subMap(['species','version'])} <- ${seqsmeta.name}"}
-//   input:
-//     set val(refmeta), file(ref), val(seqsmeta), file(seqs) from remoteGenomeSeqs.mix(localGenomeSeqs).combine(sequencesToPlaceChannel) // <=========
+process alignToGenome {
+  label 'minimap2'
+  tag {"${refmeta.subMap(['species','version'])} <- ${seqsmeta.name}"}
 
-//   output:
-//     set val(outmeta), file('*.paf') into alignedSeqsChannel
+  input:
+    tuple val(refmeta), file(ref), val(seqsmeta), file(seqs) from refsChannel2
+        .filter { it.containsKey('fasta') }
+        .map { [it, file(it.fasta)]}
+        .combine(sequencesToPlaceChannel)
 
-//   when: //if target not specified place on all, otherwise check if current ref specified as target
-//     !seqsmeta.containsKey('target') || seqsmeta.target.any { it.species == refmeta.species && it.version == refmeta.version }
+  output:
+    set val(outmeta), file('*.paf') into alignedSeqsChannel
 
-
-//   script:
-//   outmeta = [ref: refmeta, seqs: seqsmeta.subMap(['name', 'seqtype'])]
-//   //preset: short read OR long assembly to ref OR long, HQ spliced to ref
-//   preset = seqsmeta.seqtype == 'markers' ? 'sr' : seqsmeta.seqtype == 'genomic' ? 'asm5' : 'splice:hq'
-//   secondary = seqsmeta.seqtype.toLowerCase().matches('markers|transcripts|cds|orf') ? 'yes' : 'no'
-//   csTag = seqsmeta.seqtype == 'markers' ? '--cs=long' : '' //save space by not printing cs in non-maraker modes
-//   alnParams = "-x ${preset} --secondary=${secondary} ${csTag} -I 30G"
-//   outmeta.align = [tool: 'minimap2', params: alnParams]
-//   """
-//   minimap2 ${alnParams} -t ${task.cpus} ${ref} ${seqs} > ${seqs}_vs_${ref}.paf
-//   """
-
-//   //TODO gzip/pigz --fast the output paf
-
-//   /*
-
-//   -N 50 \ ?????
-
-//   Breakdown of -x sr Short single-end reads without splicing i.e.:
-//    -k21 Minimizer k-mer length [15]
-//    -w11 Minimizer window size [2/3 of k-mer length]. A minimizer is the smallest k-mer in a window of w consecutive k-mers.
-//    --sr Enable short-read alignment heuristics. In the short-read mode, minimap2 applies a second round of chaining with a higher minimizer occurrence threshold if no good chain is found. In addition, minimap2 attempts to patch gaps between seeds with ungapped alignment.
-
-//    -A2 Matching score [2]
-//    -B8 Mismatching penalty [4]
-//    -O12,32 Gap open penalty [4,24]. If INT2 is not specified, it is set to INT1.
-//    -E2,1 Gap extension penalty [2,1]. A gap of length k costs min{O1+k*E1,O2+k*E2}. In the splice mode, the second gap penalties are not used.
-//    -r50 Bandwidth used in chaining and DP-based alignment [500]. This option approximately controls the maximum gap size.
-//    -p.5 Minimal secondary-to-primary score ratio to output secondary mappings [0.8]. Between two chains overlaping over half of the shorter chain (controlled by -M), the chain with a lower score is secondary to the chain with a higher score. If the ratio of the scores is below FLOAT, the secondary chain will not be outputted or extended with DP alignment later. This option has no effect when -X is applied.
-//    -N20 Output at most INT secondary alignments [5]. This option has no effect when -X is applied.
-//    -f1000,5000 If fraction, ignore top FLOAT fraction of most frequent minimizers [0.0002]. If integer, ignore minimizers occuring more than INT1 times. INT2 is only effective in the --sr or -xsr mode, which sets the threshold for a second round of seeding.
-//    -n2 Discard chains consisting of <INT number of minimizers [3]
-//    -m20 Discard chains with chaining score <INT [40]. Chaining score equals the approximate number of matching bases minus a concave gap penalty. It is computed with dynamic programming.
-//    -s40 Minimal peak DP alignment score to output [40]. The peak score is computed from the final CIGAR. It is the score of the max scoring segment in the alignment and may be different from the total alignment score.
-//    -g200 Stop chain enlongation if there are no minimizers within INT-bp [10000].
-//    -2 Use two I/O threads during mapping. By default, minimap2 uses one I/O thread. When I/O is slow (e.g. piping to gzip, or reading from a slow pipe), the I/O thread may become the bottleneck. Apply this option to use one thread for input and another thread for output, at the cost of increased peak RAM.
-//    -K50m Number of bases loaded into memory to process in a mini-batch [500M]. Similar to option -I, K/M/G/k/m/g suffix is accepted. A large NUM helps load balancing in the multi-threading mode, at the cost of increased memory.
-//    --heap-sort=yes 	If yes, sort anchors with heap merge, instead of radix sort. Heap merge is faster for short reads, but slower for long reads. [no]
-//    --secondary=no Whether to output secondary alignments [yes]
+  when: //if target not specified place on all, otherwise check if current ref specified as target
+    !seqsmeta.containsKey('target') || seqsmeta.target.any { it.species == refmeta.species && it.version == refmeta.version }
 
 
-//    //IRRELEVANT FOR MARKERS AS CURRENTLY SET UP
-//    --frag=yes Whether to enable the fragment mode [no] ?????
-//    */
-// }
+  script:
+  outmeta = [ref: refmeta, seqs: seqsmeta.subMap(['name', 'seqtype'])]
+  //preset: short read OR long assembly to ref OR long, HQ spliced to ref
+  preset = seqsmeta.seqtype == 'markers' ? 'sr' : seqsmeta.seqtype == 'genomic' ? 'asm5' : 'splice:hq'
+  secondary = seqsmeta.seqtype.toLowerCase().matches('markers|transcripts|cds|orf') ? 'yes' : 'no'
+  csTag = seqsmeta.seqtype == 'markers' ? '--cs=long' : '' //save space by not printing cs in non-maraker modes
+  alnParams = "-x ${preset} --secondary=${secondary} ${csTag} -I 30G"
+  outmeta.align = [tool: 'minimap2', params: alnParams]
+  """
+  minimap2 ${alnParams} -t ${task.cpus} ${ref} ${seqs} > ${seqs}_vs_${ref}.paf
+  """
+
+  //TODO gzip/pigz --fast the output paf
+
+  /*
+
+  -N 50 \ ?????
+
+  Breakdown of -x sr Short single-end reads without splicing i.e.:
+   -k21 Minimizer k-mer length [15]
+   -w11 Minimizer window size [2/3 of k-mer length]. A minimizer is the smallest k-mer in a window of w consecutive k-mers.
+   --sr Enable short-read alignment heuristics. In the short-read mode, minimap2 applies a second round of chaining with a higher minimizer occurrence threshold if no good chain is found. In addition, minimap2 attempts to patch gaps between seeds with ungapped alignment.
+
+   -A2 Matching score [2]
+   -B8 Mismatching penalty [4]
+   -O12,32 Gap open penalty [4,24]. If INT2 is not specified, it is set to INT1.
+   -E2,1 Gap extension penalty [2,1]. A gap of length k costs min{O1+k*E1,O2+k*E2}. In the splice mode, the second gap penalties are not used.
+   -r50 Bandwidth used in chaining and DP-based alignment [500]. This option approximately controls the maximum gap size.
+   -p.5 Minimal secondary-to-primary score ratio to output secondary mappings [0.8]. Between two chains overlaping over half of the shorter chain (controlled by -M), the chain with a lower score is secondary to the chain with a higher score. If the ratio of the scores is below FLOAT, the secondary chain will not be outputted or extended with DP alignment later. This option has no effect when -X is applied.
+   -N20 Output at most INT secondary alignments [5]. This option has no effect when -X is applied.
+   -f1000,5000 If fraction, ignore top FLOAT fraction of most frequent minimizers [0.0002]. If integer, ignore minimizers occuring more than INT1 times. INT2 is only effective in the --sr or -xsr mode, which sets the threshold for a second round of seeding.
+   -n2 Discard chains consisting of <INT number of minimizers [3]
+   -m20 Discard chains with chaining score <INT [40]. Chaining score equals the approximate number of matching bases minus a concave gap penalty. It is computed with dynamic programming.
+   -s40 Minimal peak DP alignment score to output [40]. The peak score is computed from the final CIGAR. It is the score of the max scoring segment in the alignment and may be different from the total alignment score.
+   -g200 Stop chain enlongation if there are no minimizers within INT-bp [10000].
+   -2 Use two I/O threads during mapping. By default, minimap2 uses one I/O thread. When I/O is slow (e.g. piping to gzip, or reading from a slow pipe), the I/O thread may become the bottleneck. Apply this option to use one thread for input and another thread for output, at the cost of increased peak RAM.
+   -K50m Number of bases loaded into memory to process in a mini-batch [500M]. Similar to option -I, K/M/G/k/m/g suffix is accepted. A large NUM helps load balancing in the multi-threading mode, at the cost of increased memory.
+   --heap-sort=yes 	If yes, sort anchors with heap merge, instead of radix sort. Heap merge is faster for short reads, but slower for long reads. [no]
+   --secondary=no Whether to output secondary alignments [yes]
+
+
+   //IRRELEVANT FOR MARKERS AS CURRENTLY SET UP
+   --frag=yes Whether to enable the fragment mode [no] ?????
+   */
+}
 
 // alignedMarkersChannel.view { it -> groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(it))}
 
 // alignedSeqsChannel.view { prettyPrint(jsonGenerator.toJson(it)) }
 
 
-// process generateFeaturesFromSeqAlignmentsJSON {
-//   tag { tag }
-//   label 'groovy'
-//   label 'json'
-//   label 'mem'  
-//   validExitStatus 0,3  //expecting exit status 3 if no features placed which is valid e.g. when no good-enough alignments found 
+process generateFeaturesFromSeqAlignmentsJSON {
+  tag { tag }
+  label 'groovy'
+  label 'json'
+  label 'mem'  
+  validExitStatus 0,3  //expecting exit status 3 if no features placed which is valid e.g. when no good-enough alignments found 
 
-//   input:
-//     set val(meta), file(paf) from alignedSeqsChannel
+  input:
+    set val(meta), file(paf) from alignedSeqsChannel
 
-//   output:
-//     file "*.json.gz" optional true into placedSeqsJSON
-//     file "*.counts" into placedSeqsCounts
+  output:
+    file "*.json.gz" optional true into placedSeqsJSON
+    file "*.counts" into placedSeqsCounts
 
-//   script:
-//   tag=[meta.ref.species, meta.ref.version, meta.seqs.name].join('_')
-//   genome=getDatasetTagFromMeta(meta.ref) //parent
-//   //shortName = (meta.ref.containsKey("shortName") ? meta.ref.shortName+"_"+meta.markers.name : "")
+  script:
+  tag=[meta.ref.species, meta.ref.version, meta.seqs.name].join('_')
+  genome=getDatasetTagFromMeta(meta.ref) //parent
+  //shortName = (meta.ref.containsKey("shortName") ? meta.ref.shortName+"_"+meta.markers.name : "")
 
-//   // println(groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(meta)))
+  // println(groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(meta)))
 
-//   // template 'paf2pretzel.groovy'
-//   """
-//   paf2pretzel.groovy \
-//     --paf ${paf} \
-//     --parent ${genome} \
-//     --sequence-type ${meta.seqs.seqtype} \
-//     --base-name ${tag} \
-//     --short-name ${meta.seqs.name} \
-//     --align-tool ${meta.align.tool} \
-//     --align-params "${meta.align.params}" \
-//     --output ${tag}_${meta.seqs.seqtype}.json.gz \
-//     --out-counts ${tag}_${meta.seqs.seqtype}.counts
-//   """
-// }
+  // template 'paf2pretzel.groovy'
+  """
+  paf2pretzel.groovy \
+    --paf ${paf} \
+    --parent ${genome} \
+    --sequence-type ${meta.seqs.seqtype} \
+    --base-name ${tag} \
+    --short-name ${meta.seqs.name} \
+    --align-tool ${meta.align.tool} \
+    --align-params "${meta.align.params}" \
+    --output ${tag}_${meta.seqs.seqtype}.json.gz \
+    --out-counts ${tag}_${meta.seqs.seqtype}.counts
+  """
+}
 
 /*
 * Generate genome blocks definitions JSON for pretzel
@@ -237,7 +254,7 @@ refsChannel3
   //   """
   // }
   .filter { meta -> meta.containsKey('pep') }
-  .branch { meta ->     
+  .branch { meta -> //redirect data sets; ones with pep but without gff/gtf are assumed to be in ENSEMBL format 
      pep4Conversion: (meta.containsKey('gff3') || meta.containsKey('gtf'))
      pepEnsembl: !(meta.containsKey('gff3') || meta.containsKey('gtf'))
        [meta, file(meta.pep)]
@@ -258,7 +275,7 @@ process filterForRepresentativePeps {
     set val(meta), file(pep) from refsWithPepChannel.pepEnsembl
 
   output:
-    set val(meta), file("${tag}_repr.pep") into remotePepSeqs4Features, remotePepSeqs4Aliases1, remotePepSeqs4Aliases2
+    set val(meta), file("${tag}_repr.pep.gz") into representativePepSeqs4Features, representativePepSeqs4Aliases1, representativePepSeqs4Aliases2
 
   script:
     tag=getAnnotationTagFromMeta(meta)
@@ -270,285 +287,277 @@ process filterForRepresentativePeps {
 }
 
 
-// /*
-//  Given a FASTA with representative peps and the corresponding gtfgff3
-//  output FASTA with representative peps and definition lines
-//  mimicking the ensembl plants (EP) format for such data - this can then
-//  be piped into the same processes which we use for chewing through EP data
-// */
-// process convertReprFasta2EnsemblPep { //TODO - NOT WORKING IF ENSEMB-FORMATTED INPUT (should not be used here but need to pass-through if already formatted?)
-//   tag{tag}
-//   // label 'fastx'
+/*
+ Given a FASTA with representative peps and the corresponding gtfgff3
+ output FASTA with representative peps and definition lines
+ mimicking the ensembl plants (EP) format for such data - this can then
+ be piped into the same processes which we use for chewing through EP data
+*/
+process convertReprFasta2EnsemblPep { //TODO - NOT WORKING IF ENSEMB-FORMATTED INPUT (should not be used here but need to pass-through if already formatted?)
+  tag{tag}
+  // label 'fastx'
 
-//   input:
-//     tuple (val(meta), file(gtfgff3), file(reprPep)) from refsWithPepChannel.pep4Conversion
-//       //.filter { meta -> meta.containsKey('pep') && (meta.containsKey('gff3') || meta.containsKey('gtf'))}
-//       .map { meta ->  [ meta, file( meta.containsKey('gff3') ? meta.gff3 : meta.gtf ), file( meta.pep ) ] }
+  input:
+    tuple (val(meta), file(gtfgff3), file(reprPep)) from refsWithPepChannel.pep4Conversion
+      //.filter { meta -> meta.containsKey('pep') && (meta.containsKey('gff3') || meta.containsKey('gtf'))}
+      .map { meta ->  [ meta, file( meta.containsKey('gff3') ? meta.gff3 : meta.gtf ), file( meta.pep ) ] }
 
-//   output:
-//     tuple val(meta), file('pep.gz') into pepSeqs4Features //, pepSeqs4Aliases1, pepSeqs4Aliases2
+  output:
+    tuple val(meta), file('pep.gz') into pepSeqs4Features, pepSeqs4Aliases1, pepSeqs4Aliases2
 
-//   script:
-//     tag=getAnnotationTagFromMeta(meta)
-//     //TRIAL RUN? ONLY TAKE FIRST n LINES
+  script:
+    tag=getAnnotationTagFromMeta(meta)
+    //TRIAL RUN? ONLY TAKE FIRST n LINES
     
     
-//     cmd0 = "${reprPep}".endsWith(".gz") ? "zcat" : "cat"
-//     cmd1 = "${gtfgff3}".endsWith(".gz") ? "zcat" : "cat"
-//     // if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gtf\$")) {
-//     if(meta.containsKey("gtf")) {
-//         """
-//         ${cmd0} ${reprPep} |  fasta_formatter | gtfAndRepr2ensembl_pep.awk -vversion="${meta.version}" - <(${cmd1} ${gtfgff3}) | gzip  > pep.gz
-//         """
-//     } else { //if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gff(3)?\$")) { //if(meta.containsKey("gff3")) {
-//       // println("MATCHED gff3: "+gtfgff3)
-//         """
-//         ${cmd0} ${reprPep} | fasta_formatter | gff3AndRepr2ensembl_pep.awk -vversion="${meta.version}"  - <(${cmd1} ${gtfgff3}) | gzip > pep.gz
-//         """
-//     // } else { //ASSUMING ENSEMBL PLANTS-LIKE FORMATTED PEPTIDE FASTA
-//     //   // println("NOT MATCHED gtfgff3: "+gtfgff3)
-//     //     """
-//     //     cp --no-dereference ${reprPep} pep
-//     //     """
-//     }
-// }
+    cmd0 = "${reprPep}".endsWith(".gz") ? "zcat" : "cat"
+    cmd1 = "${gtfgff3}".endsWith(".gz") ? "zcat" : "cat"
+    // if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gtf\$")) {
+    if(meta.containsKey("gtf")) {
+        """
+        ${cmd0} ${reprPep} |  fasta_formatter | gtfAndRepr2ensembl_pep.awk -vversion="${meta.version}" - <(${cmd1} ${gtfgff3}) | gzip  > pep.gz
+        """
+    } else { //if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gff(3)?\$")) { //if(meta.containsKey("gff3")) {
+      // println("MATCHED gff3: "+gtfgff3)
+        """
+        ${cmd0} ${reprPep} | fasta_formatter | gff3AndRepr2ensembl_pep.awk -vversion="${meta.version}"  - <(${cmd1} ${gtfgff3}) | gzip > pep.gz
+        """
+    // } else { //ASSUMING ENSEMBL PLANTS-LIKE FORMATTED PEPTIDE FASTA
+    //   // println("NOT MATCHED gtfgff3: "+gtfgff3)
+    //     """
+    //     cp --no-dereference ${reprPep} pep
+    //     """
+    }
+}
 
 
 
 
-// /*
-// * Generate for pretzel JSON aliases linking features between chromosomes/genomes
-// * Fails if JSON invalid
-// */
-// process generateFeaturesJSON {
-//   tag{tag}
-//   label 'json'
-//   label 'groovy'
-//   echo true
-//   errorStrategy 'terminate'
+/*
+* Generate for pretzel JSON aliases linking features between chromosomes/genomes
+* Fails if JSON invalid
+*/
+process generateFeaturesJSON {
+  tag{tag}
+  label 'json'
+  label 'groovy'
+  echo true
+  errorStrategy 'terminate'
 
-//   input:
-//     set val(meta), file(pep) from refsWithPepChannel.pepEnsembl.mix(pepSeqs4Features)
-//     // set val(meta), file(pep) from refsChannel2.map { meta -> [meta, file(meta.pep)] }
+  input:
+    set val(meta), file(pep) from representativePepSeqs4Features.mix(pepSeqs4Features)
+    // set val(meta), file(pep) from refsChannel2.map { meta -> [meta, file(meta.pep)] }
 
-//   output:
-//     file "*.json.gz" into featuresJSON
-//     file "*.counts" into featuresCounts
+  output:
+    file "*.json.gz" into featuresJSON
+    file "*.counts" into featuresCounts
 
-//   script:
-//     tag=getAnnotationTagFromMeta(meta)
-//     genome=getDatasetTagFromMeta(meta)
-//     shortName = (meta.containsKey("shortName") ? meta.shortName+"_genes" : "")
-//     shortName +=(meta.containsKey("annotation") ? "_"+meta.annotation : "") //only for cases where multiple annotations per genome
-//     // """
-//     // ls -la
-//     // """
-//     """
-//     #!/usr/bin/env groovy
+  script:
+    tag=getAnnotationTagFromMeta(meta)
+    genome=getDatasetTagFromMeta(meta)
+    shortName = (meta.containsKey("shortName") ? meta.shortName+"_genes" : "")
+    shortName +=(meta.containsKey("annotation") ? "_"+meta.annotation : "") //only for cases where multiple annotations per genome
+    // """
+    // ls -la
+    // """
+    """
+    #!/usr/bin/env groovy
 
-//     import java.util.zip.GZIPInputStream
-//     import java.util.zip.GZIPOutputStream
-//     import static groovy.json.JsonOutput.*
+    import java.util.zip.GZIPInputStream
+    import java.util.zip.GZIPOutputStream
+    import static groovy.json.JsonOutput.*
 
-//     pep = new File('${pep}').text
-//     out = new File('${tag}_annotation.json')
-//     counts = new File('${tag}_annotation.counts')
-//     def annotation = [:]
-//     annotation.public = ${!params.makePrivate}
-//     annotation.meta = [:]
-//     if("${meta.shortName}" != "null") {
-//       annotation.meta << ["shortName" : "${shortName}"]
-//     }
-//     if("${meta.source}" != "null") {
-//       annotation.meta << ["source" : "${meta.source}"]
-//     }
-//     if("${meta.release}" != "null") {
-//       annotation.meta << ["release" : "${meta.release}"]
-//     }
-//     if("${meta.citation}" != "null") {
-//       annotation.meta << ["citation" : "${meta.citation}"]
-//     }
-//     annotation.name = "${tag}_genes"
-//     annotation.namespace = "${genome}:${tag}_annotation"
-//     annotation.parent = "${genome}"
-//     annotation.blocks = []
-//     TreeMap scope = [:] //keep keys sorted as the corresponding blocks get displayed in order in pretzel
-//     def pepStream = new FileInputStream(new File('${pep}'))
-//     def inStream = '${pep}'.endsWith('.gz') ? new GZIPInputStream(pepStream , 1024) : pepStream
-//     def content = new BufferedReader(new InputStreamReader(inStream, "UTF-8"), 1024);
-//     while ((line = content.readLine()) != null && !line.isEmpty() ) {
-//     // pep.eachLine { line ->
-//       if(line =~ /^>/ ) {
-//         toks = line.split()
-//         location = toks[2].split(":")
-//         gene = toks[3].split(":")
-//         key = location[2].replaceFirst("^(C|c)(H|h)(R|r)?[_]?","")
-//         //Skip non-chromosome blocks
-//         if(key.toLowerCase() =~ /^(ch|[0-9]|x|y|i|v)/ ) {
-//           if(!scope.containsKey(key)) {
-//             scope << [(key) : []]
-//           }
-//           scope[key] << ["name" : gene[1], "value" : [ location[3].toInteger(), location[4].toInteger() ]]
-//         }
-//       }
-//     }
-//     //GROUP TOGETHER FEATURES FROM/IN SAME BLOCK
-//     scope.each { k, features ->
-//       current = [ "scope": k, "featureType": "linear", "features": []]
-//       features.each { feature ->
-//         current.features << feature
-//       }
-//       annotation.blocks << current
-//     }
-//     //RECORD NUM FEATURS PER BLOCK
-//     counts.withWriterAppend{ wr ->
-//       annotation.blocks.each {
-//         wr.println  annotation.name+"\\t"+it.scope+"\\t"+it.features.size()
-//       }
-//     }
-//     //OUTPUT JSON, COMPRESS
-//     out.text = prettyPrint(toJson(annotation))
-//     'gzip ${tag}_annotation.json'.execute()
-//     """
-// }
+    pep = new File('${pep}').text
+    out = new File('${tag}_annotation.json')
+    counts = new File('${tag}_annotation.counts')
+    def annotation = [:]
+    annotation.public = ${!params.makePrivate}
+    annotation.meta = [:]
+    if("${meta.shortName}" != "null") {
+      annotation.meta << ["shortName" : "${shortName}"]
+    }
+    if("${meta.source}" != "null") {
+      annotation.meta << ["source" : "${meta.source}"]
+    }
+    if("${meta.release}" != "null") {
+      annotation.meta << ["release" : "${meta.release}"]
+    }
+    if("${meta.citation}" != "null") {
+      annotation.meta << ["citation" : "${meta.citation}"]
+    }
+    annotation.name = "${tag}_genes"
+    annotation.namespace = "${genome}:${tag}_annotation"
+    annotation.parent = "${genome}"
+    annotation.blocks = []
+    TreeMap scope = [:] //keep keys sorted as the corresponding blocks get displayed in order in pretzel
+    def pepStream = new FileInputStream(new File('${pep}'))
+    def inStream = '${pep}'.endsWith('.gz') ? new GZIPInputStream(pepStream , 1024) : pepStream
+    def content = new BufferedReader(new InputStreamReader(inStream, "UTF-8"), 1024);
+    while ((line = content.readLine()) != null && !line.isEmpty() ) {
+    // pep.eachLine { line ->
+      if(line =~ /^>/ ) {
+        toks = line.split()
+        location = toks[2].split(":")
+        gene = toks[3].split(":")
+        key = location[2].replaceFirst("^(C|c)(H|h)(R|r)?[_]?","")
+        //Skip non-chromosome blocks
+        if(key.toLowerCase() =~ /^(ch|[0-9]|x|y|i|v)/ ) {
+          if(!scope.containsKey(key)) {
+            scope << [(key) : []]
+          }
+          scope[key] << ["name" : gene[1], "value" : [ location[3].toInteger(), location[4].toInteger() ]]
+        }
+      }
+    }
+    //GROUP TOGETHER FEATURES FROM/IN SAME BLOCK
+    scope.each { k, features ->
+      current = [ "scope": k, "featureType": "linear", "features": []]
+      features.each { feature ->
+        current.features << feature
+      }
+      annotation.blocks << current
+    }
+    //RECORD NUM FEATURS PER BLOCK
+    counts.withWriterAppend{ wr ->
+      annotation.blocks.each {
+        wr.println  annotation.name+"\\t"+it.scope+"\\t"+it.features.size()
+      }
+    }
+    //OUTPUT JSON, COMPRESS
+    out.text = prettyPrint(toJson(annotation))
+    'gzip ${tag}_annotation.json'.execute()
+    """
+}
 
+pepSeqs4AliasesCombined = representativePepSeqs4Aliases1.mix(pepSeqs4Aliases1).combine(representativePepSeqs4Aliases2.mix(pepSeqs4Aliases2))
+  .filter { getAnnotationTagFromMeta(it[0]) <= getAnnotationTagFromMeta(it[2])  }  //[species,version,file.pep]
+  // .first()
+  // .view{ [it[0].species, it[2].species] }
+  // .view { it -> groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(it))}
 
+/*
+* Identify best hit for each pep
+*/
+process pairProteins {
+  tag{meta}
+  label 'MMseqs2'
+  errorStrategy 'ignore'
 
+  input:
+    set val(metaA), file('pepA.gz'), val(metaB), file('pepB.gz') from pepSeqs4AliasesCombined
 
-// //COMBINE AND FILTER DUPLICATED CHANNEL TO ALLOW ALL VS ALL DATASETS COMPARISONS
-// // remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.mix(localPepSeqs4AliasesRepSplit1).combine(remotePepSeqs4Aliases2.mix(localPepSeqs4AliasesRepSplit2))
-// pepSeqs4AliasesCombined = pepSeqs4Aliases1.combine(pepSeqs4Aliases2)
-//   .filter { getAnnotationTagFromMeta(it[0]) <= getAnnotationTagFromMeta(it[2])  }  //[species,version,file.pep]
+  output:
+     set val(metaA), val(metaB), file("*.tsv"), file(idlines) into pairedProteins
 
-// // .collect().subscribe{ println it.combinations().each { a, b -> a[0].species < b[0].species} }
+  script:
+    tagA=getAnnotationTagFromMeta(metaA)
+    tagB=getAnnotationTagFromMeta(metaB)
+    meta = ["query": tagA, "target": tagB]
+    basename=tagA+"_VS_"+tagB
+    """
+    mmseqs easy-search pepA.gz pepB.gz ${basename}.tsv \${TMPDIR:-/tmp}/${basename} \
+    --format-mode 2 \
+    -c ${params.minCoverage} \
+    --min-seq-id ${params.minIdentity} \
+    --threads ${task.cpus} -v 1 \
+    && zcat pepA.gz pepB.gz | grep --no-filename '^>'  | sed 's/^>//' > idlines
+    """
+    //'qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen'
+}
 
-// /*
-// * Identify best hit for each pep
-// */
-// process pairProteins {
-//   tag{meta}
-//   label 'MMseqs2'
-//   errorStrategy 'ignore'
+/*
+* Generate JSON aliases linking features between chromosomes/genomes
+*/
+process generateAliasesJSON {
+  // maxForks 1
+  tag{basename}
+  label 'json'
+  label 'jq'
+  validExitStatus 0,3  //expecting exit status 3 if no aliases generated which is valid e.g. when dataset consisting of a single chr/block aligned to itself
+  // errorStrategy 'finish'
+  // echo 'true'
 
-//   input:
-//     set val(metaA), file('pepA'), val(metaB), file('pepB') from pepSeqs4AliasesCombined
+  input:
+    set(val(metaA), val(metaB), file(paired), file(idlines)) from pairedProteins
 
-//   output:
-//      set val(metaA), val(metaB), file("*.tsv"), file(idlines) into pairedProteins
+  output:
+    file "${basename}*_aliases.json.gz" optional true into aliasesJSON
+    file "${basename}_aliases.len" into aliasesCounts
 
-//   script:
-//     tagA=getAnnotationTagFromMeta(metaA)
-//     tagB=getAnnotationTagFromMeta(metaB)
-//     meta = ["query": tagA, "target": tagB]
-//     basename=tagA+"_VS_"+tagB
-//     """
-//     mmseqs easy-search ${pepA} ${pepB} ${basename}.tsv \${TMPDIR:-/tmp}/${basename} \
-//     --format-mode 2 \
-//     -c ${params.minCoverage} \
-//     --min-seq-id ${params.minIdentity} \
-//     --threads ${task.cpus} -v 1 \
-//     && grep --no-filename '^>' ${pepA} ${pepB} | sed 's/^>//' > idlines
-//     """
-//     //'qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen'
-// }
+  script:
+    // println(prettyPrint(toJson(metaA)))
+    genome1=getDatasetTagFromMeta(metaA)
+    genome2=getDatasetTagFromMeta(metaB)
+    tag1=getAnnotationTagFromMeta(metaA)
+    tag2=getAnnotationTagFromMeta(metaB)
+    basename=tag1+"_VS_"+tag2
+    namespace1=genome1+":"+tag1+"_annotation"
+    namespace2=genome2+":"+tag2+"_annotation"
+    cmd = tag1 != tag2 ? "cat ${paired} " : "excludeSameChromosome.awk -vtag1=${tag1} -vtag2=${tag2} ${idlines} ${paired}"
+    """
+    # No aliases if all genes on a single chromososme, same assembly
+    if [ \$(cut -f2,3 -d':' ${idlines} | sort |uniq | wc -l) -eq 1 ]; then
+      echo 0 > ${basename}_aliases.len
+      exit 0
+    fi
+    #at least one of the aligned pair must meet the minCoverageFilter threshold
+    #and we split in to max 500k chunks to limit output JSON size
+    ${cmd} | awk '\$3 >= ${params.minIdentityFilter} && ((\$8-\$7+1)/\$13 >= ${params.minCoverageFilter} || (\$10-\$9+1)/\$14 >= ${params.minCoverageFilter})' \
+    | split -d -l 500000 - __part \
+    && for PART in __part*; do
+      blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} \${PART} \
+      | tee >(jq length >> ${basename}_\${PART#__part}_aliases.len) \
+      | gzip > ${basename}_\${PART#__part}_aliases.json.gz
+    done \
+    && zcat ${basename}*aliases.json.gz | head | grep -E '[[:alnum:]]' > /dev/null || (echo "No aliases generated for ${basename}" && exit 3) \
+    && awk '{tot+=\$1};END{print tot}' ${basename}_*_aliases.len > ${basename}_aliases.len \
+    && if [ \$(ls -1 __part*  | wc -l) -eq 1 ]; then mv ${basename}_\${PART#__part}_aliases.json.gz ${basename}_aliases.json.gz; fi \
+    && rm __part*
+    """
+        //tmp: | split -dl5 --additional-suffix '.json' - part
+    //    sed -e '1 i\[' -e '$ i\]'
+}
 
-// /*
-// * Generate JSON aliases linking features between chromosomes/genomes
-// */
-// process generateAliasesJSON {
-//   // maxForks 1
-//   tag{basename}
-//   label 'json'
-//   label 'jq'
-//   validExitStatus 0,3  //expecting exit status 3 if no aliases generated which is valid e.g. when dataset consisting of a single chr/block aligned to itself
-//   // errorStrategy 'finish'
-//   // echo 'true'
+process stats {
+  label 'summary'
+  label 'jq'
 
-//   input:
-//     set(val(metaA), val(metaB), file(paired), file(idlines)) from pairedProteins
+  input:
+    file('*') from genomeBlocksStats.collect()
+    file('*') from featuresCounts.collect()
+    file('*') from aliasesCounts.collect()
+    file('*') from placedSeqsCounts.collect()
 
-//   output:
-//     file "${basename}*_aliases.json.gz" optional true into aliasesJSON
-//     file "${basename}_aliases.len" into aliasesCounts
+  output:
+    file('*') into outstats
 
-//   script:
-//     // println(prettyPrint(toJson(metaA)))
-//     genome1=getDatasetTagFromMeta(metaA)
-//     genome2=getDatasetTagFromMeta(metaB)
-//     tag1=getAnnotationTagFromMeta(metaA)
-//     tag2=getAnnotationTagFromMeta(metaB)
-//     basename=tag1+"_VS_"+tag2
-//     namespace1=genome1+":"+tag1+"_annotation"
-//     namespace2=genome2+":"+tag2+"_annotation"
-//     cmd = tag1 != tag2 ? "cat ${paired} " : "excludeSameChromosome.awk -vtag1=${tag1} -vtag2=${tag2} ${idlines} ${paired}"
-//     """
-//     # No aliases if all genes on a single chromososme, same assembly
-//     if [ \$(cut -f2,3 -d':' ${idlines} | sort |uniq | wc -l) -eq 1 ]; then
-//       echo 0 > ${basename}_aliases.len
-//       exit 0
-//     fi
-//     #at least one of the aligned pair must meet the minCoverageFilter threshold
-//     #and we split in to max 500k chunks to limit output JSON size
-//     ${cmd} | awk '\$3 >= ${params.minIdentityFilter} && ((\$8-\$7+1)/\$13 >= ${params.minCoverageFilter} || (\$10-\$9+1)/\$14 >= ${params.minCoverageFilter})' \
-//     | split -d -l 500000 - __part \
-//     && for PART in __part*; do
-//       blasttab2json.awk -vnamespace1=${namespace1} -vnamespace2=${namespace2} \${PART} \
-//       | tee >(jq length >> ${basename}_\${PART#__part}_aliases.len) \
-//       | gzip > ${basename}_\${PART#__part}_aliases.json.gz
-//     done \
-//     && zcat ${basename}*aliases.json.gz | head | grep -E '[[:alnum:]]' > /dev/null || (echo "No aliases generated for ${basename}" && exit 3) \
-//     && awk '{tot+=\$1};END{print tot}' ${basename}_*_aliases.len > ${basename}_aliases.len \
-//     && if [ \$(ls -1 __part*  | wc -l) -eq 1 ]; then mv ${basename}_\${PART#__part}_aliases.json.gz ${basename}_aliases.json.gz; fi \
-//     && rm __part*
-//     """
-//         //tmp: | split -dl5 --additional-suffix '.json' - part
-//     //    sed -e '1 i\[' -e '$ i\]'
-// }
+  script:
+  """
+  jq -r  '.blocks[] | (input_filename, .scope, .range[1])' *_genome.json | paste - - - | sort -V > blocks.counts
+  cat *_annotation.counts | sort -V > feature.counts
+  cat *_markers.counts | sort -V > markers.counts
+  grep "" *_aliases.len > aliases.counts
+  """
+  //jq '.blocks[]' ${f} | jq 'input_filename, .scope, (.features | length)' | paste - - | sort -V
+}
 
+process pack {
+  label 'archive'
+  executor 'local'
 
+  input:
+    file('*') from genomeBlocksJSON.collect()
+    file('*') from featuresJSON.collect()
+    file('*') from aliasesJSON.collect()
+    file('*') from placedSeqsJSON.collect()
+    file('*') from outstats
 
+  output:
+    file('*') into targzJSON
 
-// process stats {
-//   label 'summary'
-//   label 'jq'
-
-//   input:
-//     file('*') from genomeBlocksStats.collect()
-//     file('*') from featuresCounts.collect()
-//     file('*') from aliasesCounts.collect()
-//     file('*') from placedSeqsCounts.collect()
-
-//   output:
-//     file('*') into outstats
-
-//   script:
-//   """
-//   jq -r  '.blocks[] | (input_filename, .scope, .range[1])' *_genome.json | paste - - - | sort -V > blocks.counts
-//   cat *_annotation.counts | sort -V > feature.counts
-//   cat *_markers.counts | sort -V > markers.counts
-//   grep "" *_aliases.len > aliases.counts
-//   """
-//   //jq '.blocks[]' ${f} | jq 'input_filename, .scope, (.features | length)' | paste - - | sort -V
-// }
-
-
-// process pack {
-//   label 'archive'
-//   executor 'local'
-
-//   input:
-//     file('*') from genomeBlocksJSON.collect()
-//     file('*') from featuresJSON.collect()
-//     file('*') from aliasesJSON.collect()
-//     file('*') from placedSeqsJSON.collect()
-//     file('*') from outstats
-
-//   output:
-//     file('*') into targzJSON
-
-//   """
-//   tar chzvf JSON-\$(date --iso-8601).tar.gz *.json *.json.gz *.counts
-//   tar chzvf  JSON-\$(date --iso-8601)-no_LC.tar.gz *.json *.json.gz *.counts --exclude '*LC*'
-//   """
-// }
+  """
+  tar chzvf JSON-\$(date --iso-8601).tar.gz *.json *.json.gz *.counts
+  tar chzvf  JSON-\$(date --iso-8601)-no_LC.tar.gz *.json *.json.gz *.counts --exclude '*LC*'
+  """
+}
 
