@@ -1,3 +1,4 @@
+sudo: required
 jdk: openjdk11
 services: docker
 matrix:
