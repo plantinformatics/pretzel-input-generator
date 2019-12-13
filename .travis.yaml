@@ -1,5 +1,5 @@
 sudo: required
-jdk: openjdk11
+jdk: openjdk8
 services: docker
 matrix:
   fast_finish: true
@@ -17,4 +17,10 @@ env:
   #- NXF_VER='' # Latest NF version 
 
 script:
-  - ./nextflow run main.nf -profile test,docker --max_cpus 2 --max_memory 4.GB -resume -ansi-log false
+  - ./nextflow run main.nf -profile test,docker --max_cpus 2 --max_memory 4.GB -ansi-log false
+
+
+
+before_install:
+  - export NXF_VER=19.07.0 && curl -fsSL get.nextflow.io | bash 
+  - chmod 777 nextflow
