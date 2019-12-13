@@ -211,7 +211,8 @@ process faidxAssembly {
   script:
     tag=getDatasetTagFromMeta(meta)
     """
-    samtools faidx ${fasta}
+    #if err, likely due to gzipped not bgzipped fasta then index flat - we just need the lengths not the index!
+    samtools faidx ${fasta} || (zcat ${fasta} > tmp && samtools faidx tmp && mv tmp.fai ${fasta}.fai)
     """
 }
 
