@@ -9,6 +9,9 @@ Note that this description lacks detail which will be added in future releases.
 `pretzel-input-generator` is a [nextflow](https://www.nextflow.io) pipeline for generating input for [pretzel](https://github.com/plantinformatics/pretzel) from annotated and (mostly) contiguous genome assemblies. The pipeline requires approximately 1 cpu-day, but as many processes can run independently, the real run-time is much shorter if suitable compute resources are available.
 
 
+
+
+
 <!-- TOC -->
 
 - [Pipeline overview](#pipeline-overview)
