@@ -1,14 +1,20 @@
-jdk: openjdk11
+sudo: required
+jdk: openjdk8
 services: docker
 matrix:
   fast_finish: true
 
+addons:
+  apt:
+    packages:
+      - graphviz
+      
 install:
   - curl -s https://get.nextflow.io | bash
 
 env:
   - NXF_VER='19.10.0' # Minimum NF version
-  - NXF_VER='' # Latest NF version 
+  #- NXF_VER='' # Latest NF version 
 
 before_script:
   - wget https://github.com/plantinformatics/pretzel-input-generator/releases/download/testdata/test-data.tar.gz
