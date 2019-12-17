@@ -11,4 +11,4 @@ env:
   - NXF_VER='' # Latest NF version 
 
 script:
-  - ./nextflow run main.nf -profile test,docker --max_cpus 2 --max_memory 4.GB -resume -ansi-log false
+  - ./nextflow run main.nf -profile test,docker --max_cpus 2 --max_memory 4.GB -ansi-log false
