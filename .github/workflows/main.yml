@@ -7,6 +7,11 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v1
+      - name: Reconf docker
+        run: |
+          sudo groupadd docker
+          sudo usermod -aG docker $USER
+          newgrp docker
       - name: Install Nextflow
         run: |
           wget -qO- get.nextflow.io | bash
@@ -20,5 +25,6 @@ jobs:
           NXF_VER=19.10.0 nextflow -version
       - name: Run test
         run: |          
-          docker run --rm -v "$PWD":/home/groovy/scripts -w /home/groovy/scripts groovy:3.0  groovy bin/paf2pretzel.groovy -h
-        # NXF_VER=19.10.0 nextflow run ${GITHUB_WORKSPACE} -profile MICROSPORIDIA,docker --max_cpus 2 --max_memory 4.GB -ansi-log false
+          NXF_VER=19.10.0 nextflow run ${GITHUB_WORKSPACE} -profile MICROSPORIDIA,docker --max_cpus 2 --max_memory 4.GB -ansi-log false
+        
+        # docker run --rm -v "$PWD":/home/groovy/scripts -w /home/groovy/scripts groovy:3.0  groovy bin/paf2pretzel.groovy -h
