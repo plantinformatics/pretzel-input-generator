@@ -7,11 +7,6 @@ jobs:
     runs-on: ubuntu-18.04
     steps:
       - uses: actions/checkout@v1
-      - name: Reconf docker
-        run: |
-          sudo groupadd docker
-          sudo usermod -aG docker $USER
-          newgrp docker
       - name: Install Nextflow
         run: |
           wget -qO- get.nextflow.io | bash
