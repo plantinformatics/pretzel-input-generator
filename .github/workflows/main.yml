@@ -41,7 +41,7 @@ jobs:
           ./mconfig -p /usr/local && \
           make -C builddir && \
           sudo make -C builddir install
-      - name: Singularity pull from docker test
+      - name: Test Singularity pull from Docker 
         run: |
           singularity pull --name hello.img docker://hello-world > /dev/null
       - name: Install Nextflow
@@ -52,7 +52,7 @@ jobs:
       #   run: |
       #     wget https://github.com/plantinformatics/pretzel-input-generator/releases/download/testdata/test-data.tar.gz
       #     tar xzvf test-data.tar.gz 
-      - name: NF test
+      - name: Test Nextflow
         run: |          
           NXF_VER=19.10.0 nextflow -version
       - name: Get test data 
@@ -61,8 +61,8 @@ jobs:
           tar xzvf test-data.tar.gz 
       - name: Pull containers 
         run: |
-          nextflow run pull_containers.nf -ansi-log false -profile singularity
-      - name: Workflow test (singularity)
+          nextflow run ${GITHUB_WORKSPACE}/pull_containers.nf -ansi-log false -profile singularity
+      - name: Test workflow  (singularity)
         run: |
           NXF_VER=19.10.0 nextflow run ${GITHUB_WORKSPACE} -profile test,singularity --max_cpus 2 --max_memory 4.GB -ansi-log false
         
