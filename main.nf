@@ -297,7 +297,7 @@ refsChannel3
 */
 process filterForRepresentativePeps {
   tag{meta.subMap(['species','version'])}
-  // label 'fastx'
+  label 'fastx'
   input:
     set val(meta), file(pep) from refsWithPepChannel.pepEnsembl
 
@@ -308,8 +308,8 @@ process filterForRepresentativePeps {
     tag=getAnnotationTagFromMeta(meta)
     cmd = "${pep}".endsWith(".gz") ? "zcat" : "cat"
     """
-    ${cmd} ${pep} | fasta_formatter | paste - - | filterForRepresentative.awk | gzip > ${tag}_repr.pep.gz
-    # [ -s ${tag}_repr.pep ] || (echo 'Error! Empty output file! ${tag}_repr.pep'; exit 1) #TODO update fro gz 
+    ${cmd} ${pep} | fasta_formatter | paste - - | filterForRepresentative.awk | gzip -c > ${tag}_repr.pep.gz
+    [ ! -z \$(zcat ${tag}_repr.pep.gz | head -c1) ] || (echo 'Error! Empty output file! ${tag}_repr.pep.gz'; exit 1) 
     """
 }
 
@@ -322,7 +322,7 @@ process filterForRepresentativePeps {
 */
 process convertReprFasta2EnsemblPep { //TODO - NOT WORKING IF ENSEMB-FORMATTED INPUT (should not be used here but need to pass-through if already formatted?)
   tag{tag}
-  // label 'fastx'
+  label 'fastx'
 
   input:
     tuple (val(meta), file(gtfgff3), file(reprPep)) from refsWithPepChannel.pep4Conversion
