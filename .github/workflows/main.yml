@@ -13,7 +13,7 @@ jobs:
         with:
           go-version: 1.13
         id: go
-      - name: Install Dependencies for Singularity
+      - name: Install Dependencies for Singularity (and GraphViz)
         run: |
           sudo apt-get update && sudo apt-get install -y \
             build-essential \
@@ -22,7 +22,9 @@ jobs:
             libgpgme11-dev \
             squashfs-tools \
             libseccomp-dev \
-            pkg-config
+            pkg-config \
+            graphviz
+
 
       - name: Install Singularity
         env:
@@ -39,6 +41,9 @@ jobs:
           ./mconfig -p /usr/local && \
           make -C builddir && \
           sudo make -C builddir install
+      - name: Singularity pull from docker test
+        run: |
+          singularity pull --name hello.img docker://hello-world > /dev/null
       - name: Install Nextflow
         run: |
           wget -qO- get.nextflow.io | bash
@@ -56,6 +61,6 @@ jobs:
           tar xzvf test-data.tar.gz 
       - name: Workflow test (singularity)
         run: |
-          NXF_VER=19.10.0 nextflow run ${GITHUB_WORKSPACE} -profile test,singularity --max_cpus 2 --max_memory 4.GB -process.maxForks 1 -ansi-log false
+          NXF_VER=19.10.0 nextflow run ${GITHUB_WORKSPACE} -profile test,singularity --max_cpus 2 --max_memory 4.GB -ansi-log false
         
         # docker run --rm -v "$PWD":/home/groovy/scripts -w /home/groovy/scripts groovy:3.0  groovy bin/paf2pretzel.groovy -h
