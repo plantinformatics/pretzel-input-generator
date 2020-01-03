@@ -59,6 +59,9 @@ jobs:
         run: |
           wget https://github.com/plantinformatics/pretzel-input-generator/releases/download/testdata/test-data.tar.gz
           tar xzvf test-data.tar.gz 
+      - name: Pull containers 
+        run: |
+          nextflow run pull_containers.nf -ansi-log false -profile singularity
       - name: Workflow test (singularity)
         run: |
           NXF_VER=19.10.0 nextflow run ${GITHUB_WORKSPACE} -profile test,singularity --max_cpus 2 --max_memory 4.GB -ansi-log false
