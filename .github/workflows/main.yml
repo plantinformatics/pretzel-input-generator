@@ -3,11 +3,35 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  test:
+  docker:
     runs-on: ubuntu-18.04
     steps:
       - name: Check out code
-        uses: actions/checkout@v1
+        uses: actions/checkout@v1    
+      - name: Install GraphViz
+        run: |
+          sudo apt-get update && sudo apt-get install -y \            
+            graphviz
+      - name: Install Nextflow
+        run: |
+          wget -qO- get.nextflow.io | bash
+          sudo mv nextflow /usr/local/bin/
+      - name: Test Nextflow
+        run: |          
+          NXF_VER=19.10.0 nextflow -version
+      - name: Get test data 
+        run: |
+          wget https://github.com/plantinformatics/pretzel-input-generator/releases/download/testdata/test-data.tar.gz
+          tar xzvf test-data.tar.gz 
+      - name: Test workflow (docker) 
+        run: |
+          NXF_VER=19.10.0 nextflow run ${GITHUB_WORKSPACE} -profile test,docker --max_cpus 2 --max_memory 4.GB -ansi-log false
+
+  singularity:
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v1        
       - name: Set up Go
         uses: actions/setup-go@v1
         with:
@@ -24,8 +48,6 @@ jobs:
             libseccomp-dev \
             pkg-config \
             graphviz
-
-
       - name: Install Singularity
         env:
           SINGULARITY_VERSION: 3.5.2
@@ -48,25 +70,20 @@ jobs:
         run: |
           wget -qO- get.nextflow.io | bash
           sudo mv nextflow /usr/local/bin/
-      # - name: Get data
-      #   run: |
-      #     wget https://github.com/plantinformatics/pretzel-input-generator/releases/download/testdata/test-data.tar.gz
-      #     tar xzvf test-data.tar.gz 
       - name: Test Nextflow
         run: |          
           NXF_VER=19.10.0 nextflow -version
-      - name: Get test data 
-        run: |
-          wget https://github.com/plantinformatics/pretzel-input-generator/releases/download/testdata/test-data.tar.gz
-          tar xzvf test-data.tar.gz 
+      # - name: Get test data 
+      #   run: |
+      #     wget https://github.com/plantinformatics/pretzel-input-generator/releases/download/testdata/test-data.tar.gz
+      #     tar xzvf test-data.tar.gz 
       - name: Pull containers 
         run: |
           echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE}"
           nextflow run ${GITHUB_WORKSPACE}/pull_containers.nf -ansi-log false -profile singularity
       - name: Test workflow  (singularity)
         run: |
-          NXF_VER=19.10.0 nextflow run ${GITHUB_WORKSPACE} -profile test,singularity --max_cpus 2 --max_memory 4.GB 
-      - name: Test docker 
-        run: |
-          docker run hello-world
-        # docker run --rm -v "$PWD":/home/groovy/scripts -w /home/groovy/scripts groovy:3.0  groovy bin/paf2pretzel.groovy -h
+          NXF_VER=19.10.0 nextflow run ${GITHUB_WORKSPACE} -profile MICROSPORIDIA,singularity --max_cpus 2 --max_memory 4.GB -ansi-log false
+      # - name: Test workflow (docker) 
+      #   run: |
+      #     NXF_VER=19.10.0 nextflow run ${GITHUB_WORKSPACE} -profile test,docker --max_cpus 2 --max_memory 4.GB -ansi-log false       
