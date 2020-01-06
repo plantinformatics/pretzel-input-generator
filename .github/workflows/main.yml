@@ -55,6 +55,10 @@ jobs:
           ./mconfig -p /usr/local && \
           make -C builddir && \
           sudo make -C builddir install
+      - name: Install Nextflow
+        run: |
+          wget -qO- get.nextflow.io | bash
+          sudo mv nextflow /usr/local/bin/
       - name: Pull containers 
         run: |
           echo "GITHUB_WORKSPACE: ${GITHUB_WORKSPACE}"
