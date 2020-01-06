@@ -69,7 +69,7 @@ try {
 
     key = BLOCK.replaceFirst("^(C|c)(H|h)(R|r)[_]?","")
       //Skip non-chromosome blocks
-      if(key.toLowerCase() =~ /^(chr|[0-9]|x|y)/ ) {
+      if(key.toLowerCase() =~ /^(chr|[0-9]|x|y|i|v))/ ) {
         if(!scope.containsKey(key)) {
           scope << [(key) : []]
         }

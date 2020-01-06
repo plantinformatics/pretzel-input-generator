@@ -1,7 +1,7 @@
 #!/usr/bin/env nextflow
 
-if(!workflow.profile.contains('EP')) {
-  println("This workflow requires -profile EP to be specified")
+if(workflow.profile.contains('BUSCOs')) {
+  println("This workflow is not compatible with the BUSCOs profile")
   exit 1
 }
 
@@ -49,6 +49,7 @@ fastasuffix = params.fastasuffix
 //LOCAL marker/contigs to place sets
 
 Channel.from(params.sequencesToPlace)
+.filter { params.sequencesToPlace != "NA" } 
 .map {
   [it, file(it.fasta)]
 }
@@ -58,7 +59,6 @@ Channel.from(params.sequencesToPlace)
 localInput = Channel.create()
 localIndices = Channel.create()
 localGenomeSeqs = Channel.create()
-if(params.localAssembly != "NA") {
   params.localAssembly.each {
      //Genome Fasta optional (?)
     if(it.containsKey("fasta")) {
@@ -92,7 +92,6 @@ if(params.localAssembly != "NA") {
     }
 
   }
-}
 localInput.close()
 localIndices.close()
 localGenomeSeqs.close()
@@ -121,10 +120,12 @@ def getDatasetTagFromMeta(meta, delim = '_') {
   return meta.species+delim+meta.version+(trialLines == null ? "" : delim+trialLines+delim+"trialLines")
 }
 
+
+
 /*
 * Download peptide seqs and assembly index files from Ensembl plants
 */
-process fetchRemoteDataFromEnsemblPlants {
+process fetchRemoteDataFromEnsembl {
   tag{meta.subMap(['species','version','release'])}
   label 'download'
 
@@ -180,7 +181,7 @@ process alignToGenome {
   outmeta = [ref: refmeta, seqs: seqsmeta.subMap(['name', 'seqtype'])]
   //preset: short read OR long assembly to ref OR long, HQ spliced to ref
   preset = seqsmeta.seqtype == 'markers' ? 'sr' : seqsmeta.seqtype == 'genomic' ? 'asm5' : 'splice:hq'
-  secondary = seqsmeta.seqtype.matches('markers|transcripts') ? 'yes' : 'no'
+  secondary = seqsmeta.seqtype.toLowerCase().matches('markers|transcripts|cds|orf') ? 'yes' : 'no'
   csTag = seqsmeta.seqtype == 'markers' ? '--cs=long' : '' //save space by not printing cs in non-maraker modes
   alnParams = "-x ${preset} --secondary=${secondary} ${csTag} -I 30G"
   outmeta.align = [tool: 'minimap2', params: alnParams]
@@ -231,13 +232,14 @@ process generateFeaturesFromSeqAlignmentsJSON {
   tag { tag }
   label 'groovy'
   label 'json'
-  label 'mem'
+  label 'mem'  
+  validExitStatus 0,3  //expecting exit status 3 if no features placed which is valid e.g. when no good-enough alignments found 
 
   input:
     set val(meta), file(paf) from alignedSeqsChannel
 
   output:
-    file "*.json.gz" into placedSeqsJSON
+    file "*.json.gz" optional true into placedSeqsJSON
     file "*.counts" into placedSeqsCounts
 
   script:
@@ -303,10 +305,14 @@ process generateGenomeBlocksJSON {
     genome.meta << ["type" : "Genome"]
     genome.blocks = []
     idx.eachLine { line ->
-      if(line.toLowerCase() =~ /^(chr|[0-9]|x|y)/ ) {
-        toks = line.split('\t')
+      if(line.toLowerCase() =~ /^(chr|[0-9]{1,2}|x|y|i|v)/ ) {
+        toks = line.split('\\t| ')
         genome.blocks += [ "scope": toks[0].replaceFirst("^(C|c)(H|h)(R|r)[_]?",""), "featureType": "linear", "range": [1, toks[1].toInteger()] ]
       }
+    }
+    if(genome.blocks.isEmpty()) {
+      System.err.println('No blocks defined for ${tag}, this may be caused by chromosome naming, terminating')
+      System.exit(2)
     }
     out.text = prettyPrint(toJson(genome))
     """
@@ -321,7 +327,7 @@ process generateGenomeBlocksJSON {
 */
 process convertReprFasta2EnsemblPep {
   tag{tag}
-  label 'fastx'
+  // label 'fastx'
 
   input:
     //val arr from localInput
@@ -361,7 +367,7 @@ process convertReprFasta2EnsemblPep {
 */
 process filterForRepresentativePeps {
   tag{meta.subMap(['species','version'])}
-  label 'fastx'
+  // label 'fastx'
   input:
     set val(meta), file(pep) from remotePepSeqs
 
@@ -433,7 +439,7 @@ process generateFeaturesJSON {
         gene = toks[3].split(":")
         key = location[2].replaceFirst("^(C|c)(H|h)(R|r)[_]?","")
         //Skip non-chromosome blocks
-        if(key.toLowerCase() =~ /^(chr|[0-9]|x|y)/ ) {
+        if(key.toLowerCase() =~ /^(chr|[0-9]|x|y|i|v)/ ) {
           if(!scope.containsKey(key)) {
             scope << [(key) : []]
           }

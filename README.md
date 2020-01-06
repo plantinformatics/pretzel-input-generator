@@ -13,8 +13,8 @@ Note that this description lacks detail which will be added in future releases.
 
 - [Pipeline overview](#pipeline-overview)
 - [Default pipeline](#default-pipeline)
-  - [Quick start](#quick-start)
-  - [Input](#input)
+  - [Quick start example using yeast data](#quick-start-example-using-yeast-data)
+  - [Input specification (triticeae and other relevant data sets)](#input-specification-triticeae-and-other-relevant-data-sets)
     - [Data sources](#data-sources)
       - [Remote](#remote)
       - [Local](#local)
@@ -30,23 +30,24 @@ Note that this description lacks detail which will be added in future releases.
 
 # Default pipeline
 
-Designed for EnsemblPlants and similarily formatted data.
+Designed for EnsemblPlants and similarly formatted data.
 
 ![doc/dag.png](doc/dag.png)
 
 
-## Quick start
+## Quick start example using yeast data
+
 
 Requires [nextflow](https://www.nextflow.io) and [Singularity](http://singularity.lbl.gov)
 
 ```
 nextflow run plantinformatics/pretzel-input-generator \
--revision v1.1 -profile EP,singularity --localAssembly NA
+-profile YEAST,singularity --max_cpus 2 --max_memory 2.GB 
 ```
 
-This will pull and process data sets from [Ensembl plants](https://plants.ensembl.org) specified in [`conf/triticeae.config`](conf/input.triticeae#L9-L29)
+This will pull and process data sets from [Ensembl](https://ensembl.org) specified in [`conf/ensembl-yeast.config`](conf/ensembl-yeast.config)
 
-## Input
+## Input specification (triticeae and other relevant data sets)
 
 Input files are specified in [conf/triticeae.config](conf/triticeae.config). This can be supplemented/replaced by JSON/YAML formatted input spec.
 
@@ -69,11 +70,13 @@ Currently all input data comes from the following sources:
 *
 #### Remote
 
-The pipeline pulls data from [Ensembl plants](https://plants.ensembl.org), included species and assembly versions are specified in [conf/triticeae.config](conf/triticeae.config).
+The pipeline pulls data from Ensembl, included species and assembly versions are specified in configuration file(s) e.g. [conf/ensembl-plants-data.config](conf/ensembl-plants-data.config).
 For each of the data sets the pipeline downloads:
 
-* genome assembly index file
-* protein sequences
+
+* genome assembly index file (required)
+* protein sequences (required if pipeline is to generate aliases)
+* genome assembly fasta (only required if pipeline is to place markers on assemblies)
 
 #### Local
 
@@ -101,8 +104,6 @@ This follows how protein sequences are annotated on Ensembl plants, but we do no
 
 ### Other considerations
 
-To run this pipeline without the local input files, use `--localAssembly NA` at execution or modify your local copy of [conf/triticeae.config](conf/triticeae.config)
-
 Wherever possible the local assembly files are used as input for the pipeline in their original form - as downloaded from their respective sources. This is however not always possible due to inconsistencies in formatting and varying levels of adherence to standards and conventions. We try to capture additional steps needed to prepare these input data sets for the inclusion in this pipeline in [doc/format_local.md](doc/format_local.md).
 
 ## Dependencies
@@ -115,6 +116,9 @@ Wherever possible the local assembly files are used as input for the pipeline in
     * [FASTX-Toolkit](http://hannonlab.cshl.edu/fastx_toolkit/)
     * [MMSeqs2](https://github.com/soedinglab/mmseqs2)
     * [Minimap2](https://github.com/lh3/minimap2) - if placing markers
+    * `jq`
+    * `groovy` interpreter
+  
 
 When using Singularity or Docker, the required containers are specified in [`conf/containers.conf`](conf/containers.config)
 
@@ -127,21 +131,21 @@ Run locally with docker
 
 ```
 nextflow run plantinformatics/pretzel-input-generator \
--profile EP,docker --localAssembly NA
+-profile YEAST,docker 
 ```
 
 Run locally with singularity
 
 ```
 nextflow run plantinformatics/pretzel-input-generator \
--profile EP,singularity --localAssembly NA
+-profile YEAST,singularity 
 ```
 
 Dispatch on a SLURM cluster with singularity
 
 ```
 nextflow run plantinformatics/pretzel-input-generator \
--profile EP,slurm,singularity,singularitymodule --localAssembly NA
+-profile YEAST,slurm,singularity
 ```
 
 ## Output
