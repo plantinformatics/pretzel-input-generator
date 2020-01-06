@@ -3,32 +3,33 @@ name: CI
 on: [push, pull_request]
 
 jobs:
-  docker:
+  nextflow:
     runs-on: ubuntu-18.04
+    steps:
+      - name: Install GraphViz
+          run: |
+            sudo apt-get update && sudo apt-get install -y \
+              graphviz
+      - name: Install Nextflow
+          run: |
+            wget -qO- get.nextflow.io | bash
+            sudo mv nextflow /usr/local/bin/
+        - name: Test Nextflow
+          run: |          
+            NXF_VER=19.10.0 nextflow -version
+
+  docker:
+    needs: nextflow
     steps:
       - name: Check out code
         uses: actions/checkout@v1    
-      - name: Install GraphViz
-        run: |
-          sudo apt-get update && sudo apt-get install -y \
-            graphviz
-      - name: Install Nextflow
-        run: |
-          wget -qO- get.nextflow.io | bash
-          sudo mv nextflow /usr/local/bin/
-      - name: Test Nextflow
-        run: |          
-          NXF_VER=19.10.0 nextflow -version
-      - name: Get test data 
-        run: |
-          wget https://github.com/plantinformatics/pretzel-input-generator/releases/download/testdata/test-data.tar.gz
-          tar xzvf test-data.tar.gz 
       - name: Test workflow (docker) 
         run: |
-          NXF_VER=19.10.0 nextflow run ${GITHUB_WORKSPACE} -profile test,docker --max_cpus 2 --max_memory 4.GB -ansi-log false
+          NXF_VER=19.10.0 nextflow run ${GITHUB_WORKSPACE} -profile CI,docker --max_cpus 2 --max_memory 4.GB -ansi-log false
 
   singularity:
-    runs-on: ubuntu-18.04
+    needs: nextflow
+    # runs-on: ubuntu-18.04
     steps:
       - name: Check out code
         uses: actions/checkout@v1        
@@ -37,7 +38,7 @@ jobs:
         with:
           go-version: 1.13
         id: go
-      - name: Install Dependencies for Singularity (and GraphViz)
+      - name: Install Dependencies for Singularity 
         run: |
           sudo apt-get update && sudo apt-get install -y \
             build-essential \
@@ -46,8 +47,7 @@ jobs:
             libgpgme11-dev \
             squashfs-tools \
             libseccomp-dev \
-            pkg-config \
-            graphviz
+            pkg-config
       - name: Install Singularity
         env:
           SINGULARITY_VERSION: 3.5.2
@@ -63,16 +63,16 @@ jobs:
           ./mconfig -p /usr/local && \
           make -C builddir && \
           sudo make -C builddir install
-      - name: Test Singularity pull from Docker 
-        run: |
-          singularity pull --name hello.img docker://hello-world > /dev/null
-      - name: Install Nextflow
-        run: |
-          wget -qO- get.nextflow.io | bash
-          sudo mv nextflow /usr/local/bin/
-      - name: Test Nextflow
-        run: |          
-          NXF_VER=19.10.0 nextflow -version
+      # - name: Test Singularity pull from Docker 
+      #   run: |
+      #     singularity pull --name hello.img docker://hello-world > /dev/null
+      # - name: Install Nextflow
+      #   run: |
+      #     wget -qO- get.nextflow.io | bash
+      #     sudo mv nextflow /usr/local/bin/
+      # - name: Test Nextflow
+      #   run: |          
+      #     NXF_VER=19.10.0 nextflow -version
       # - name: Get test data 
       #   run: |
       #     wget https://github.com/plantinformatics/pretzel-input-generator/releases/download/testdata/test-data.tar.gz
@@ -83,7 +83,4 @@ jobs:
           nextflow run ${GITHUB_WORKSPACE}/pull_containers.nf -ansi-log false -profile singularity
       - name: Test workflow  (singularity)
         run: |
-          NXF_VER=19.10.0 nextflow run ${GITHUB_WORKSPACE} -profile MICROSPORIDIA,singularity --max_cpus 2 --max_memory 4.GB -ansi-log false
-      # - name: Test workflow (docker) 
-      #   run: |
-      #     NXF_VER=19.10.0 nextflow run ${GITHUB_WORKSPACE} -profile test,docker --max_cpus 2 --max_memory 4.GB -ansi-log false       
+          NXF_VER=19.10.0 nextflow run ${GITHUB_WORKSPACE} -profile CI,singularity --max_cpus 2 --max_memory 4.GB -ansi-log false
