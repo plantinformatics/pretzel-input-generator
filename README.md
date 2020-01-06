@@ -6,6 +6,7 @@
 
 ![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/plantinformatics/pretzel-input-generator/CI/master?label=CI%20TESTS&logo=github&style=for-the-badge)
 
+![GitHub Workflow Status](https://img.shields.io/github/workflow/status/plantinformatics/pretzel-input-generator/CI?label=CI%20TESTS&logo=github&style=for-the-badge)
 
 Note that this description lacks detail which will be added in future releases.
 
