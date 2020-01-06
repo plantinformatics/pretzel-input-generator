@@ -2,6 +2,11 @@
 
 [![GitHub commits since latest release](https://img.shields.io/github/commits-since/plantinformatics/pretzel-input-generator/latest.svg?style=for-the-badge&logo=github)](https://github.com/plantinformatics/pretzel-input-generator/releases)
 
+![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/plantinformatics/pretzel-input-generator/CI/feature/streamline-inputs?label=DEV%20BRANCH%20TESTS&logo=github&style=for-the-badge)
+
+![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/plantinformatics/pretzel-input-generator/CI/master?label=CI%20TESTS&logo=github&style=for-the-badge)
+
+
 Note that this description lacks detail which will be added in future releases.
 
 # Pipeline overview
