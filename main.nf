@@ -281,12 +281,32 @@ refsChannel3
   //   """
   // }
   .filter { meta -> meta.containsKey('pep') }
+  .map { meta -> // DUPLICATE EMISSIONS IF MULTIPLE ANNOTATIONS PER REFERENCE ASSEMBLY
+    if(meta.pep instanceof Map) {
+      def repeated = []
+      meta.pep.each { k,v ->
+        def item = meta.subMap(meta.keySet().minus(['pep','gff3','gtf'])) + [pep: v, annotation: k] 
+        if(meta.containsKey('gff3') && meta.gff3.containsKey(k)) {
+          item.gff3 = meta.gff3."${k}"
+        } else if(meta.containsKey('gtf') && meta.gtf.containsKey(k)) {
+          item.gtf = meta.gtf."${k}"
+        } 
+        repeated << item
+      }
+      repeated
+    } else {
+      meta
+    }
+  }
+  .flatten()
   .branch { meta -> //redirect data sets; ones with pep but without gff/gtf are assumed to be in ENSEMBL format 
      pep4Conversion: (meta.containsKey('gff3') || meta.containsKey('gtf'))
-     pepEnsembl: !(meta.containsKey('gff3') || meta.containsKey('gtf'))
+     pepEnsembl: !(meta.containsKey('gff3') && !meta.containsKey('gtf'))
        [meta, file(meta.pep)]
   }
   .set { refsWithPepChannel }
+
+// refsWithPepChannel.pep4Conversion.view { it -> groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(it))}
 
 /*
  Only keep "representative" splice form for each gene,
