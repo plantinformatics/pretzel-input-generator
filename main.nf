@@ -363,11 +363,13 @@ process convertReprFasta2EnsemblPep { //TODO - NOT WORKING IF ENSEMB-FORMATTED I
     if(meta.containsKey("gtf")) {
         """
         ${cmd0} ${reprPep} |  fasta_formatter | gtfAndRepr2ensembl_pep.awk -vversion="${meta.version}" - <(${cmd1} ${gtfgff3}) | gzip  > pep.gz
+        [ ! -z \$(zcat pep.gz | head -c1) ] || (echo 'Error! Empty output file! pep.gz'; exit 1)
         """
     } else { //if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gff(3)?\$")) { //if(meta.containsKey("gff3")) {
       // println("MATCHED gff3: "+gtfgff3)
         """
         ${cmd0} ${reprPep} | fasta_formatter | gff3AndRepr2ensembl_pep.awk -vversion="${meta.version}"  - <(${cmd1} ${gtfgff3}) | gzip > pep.gz
+        [ ! -z \$(zcat pep.gz | head -c1) ] || (echo 'Error! Empty output file! pep.gz'; exit 1)
         """
     // } else { //ASSUMING ENSEMBL PLANTS-LIKE FORMATTED PEPTIDE FASTA
     //   // println("NOT MATCHED gtfgff3: "+gtfgff3)
