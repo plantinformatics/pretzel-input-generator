@@ -23,21 +23,33 @@ NR!=FNR {
       if(pair[1]=="ID") {
         transcript=pair[2];
       } else if(pair[1]=="Parent") {
-        gene=pair[2];
+        parent=pair[2];
+        gene=parent
         gsub(/\.[0-9]+$/,"",gene);
       } else if(pair[1] ~ /^protein(_source)?_id$/)  {
         source=pair[2];
       }
     }
-    # print "g="gene,"t="transcript,"s="source
+    # print "p="parent,"g="gene,"t="transcript,"s="source
     # if(transcript in repr && !(gene in printed)) { 
-    if(source in repr && !(gene in printed)) {
+    if(!(parent in printed)) {
       #IGNORECASE=1;
       gsub(/chr_?/,"",$1);
       #IGNORECASE=0;
-      printed[gene]=1;
+      
+      if(source in repr) {
+        id = source
+      } else if(parent in repr) { #dealing with GFF files being inconsistent...
+        id = parent
+      } else {
+        id = ""
+      }
+    # if(source in repr && !(gene in printed)) {
       # print ">"transcript" pep chromosome:"version":"$1":"$4":"$5" gene:"gene"\n"repr[transcript];
-      print ">"source" pep chromosome:"version":"$1":"$4":"$5" gene:"gene"\n"repr[source];
+      if(id) {
+        print ">"id" pep chromosome:"version":"$1":"$4":"$5" gene:"gene"\n"repr[id];       
+        printed[parent]=1;       
+      }
     }
   }
 }
