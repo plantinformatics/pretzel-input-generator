@@ -184,6 +184,7 @@ process generateFeaturesFromSeqAlignmentsJSON {
     --short-name ${meta.seqs.name} \
     --align-tool ${meta.align.tool} \
     --align-params "${meta.align.params}" \
+    --allowed-target-id-pattern '${meta.ref.allowedIdPattern}' \
     --output ${tag}_${meta.seqs.seqtype}.json.gz \
     --out-counts ${tag}_${meta.seqs.seqtype}.counts
   """
@@ -257,7 +258,7 @@ process generateGenomeBlocksJSON {
     genome.meta << ["type" : "Genome"]
     genome.blocks = []
     idx.eachLine { line ->
-      if(line.toLowerCase() =~ /^(ch|[0-9]{1,2}|x|y|i|v)/ || line =~ ${meta.allowedIdPattern} ) {
+      if(line.toLowerCase() =~ /^(ch|[0-9]{1,2}|x|y|i|v)/ || line ==~ '${meta.allowedIdPattern}' ) {
         toks = line.split('\\t| ')
         genome.blocks += [ "scope": toks[0].replaceFirst("^(C|c)(H|h)(R|r)[_]?",""), "featureType": "linear", "range": [1, toks[1].toInteger()] ]
       }
@@ -450,7 +451,7 @@ process generateFeaturesJSON {
         gene = toks[3].split(":")
         key = location[2].replaceFirst("^(C|c)(H|h)(R|r)?[_]?","")
         //Skip non-chromosome blocks
-        if(key.toLowerCase() =~ /^(ch|[0-9]|x|y|i|v)/ || key =~ ${meta.allowedIdPattern} ) {
+        if(key.toLowerCase() =~ /^(ch|[0-9]|x|y|i|v)/ || key ==~ '${meta.allowedIdPattern}' ) {
           if(!scope.containsKey(key)) {
             scope << [(key) : []]
           }
@@ -584,7 +585,7 @@ process stats {
   """
   jq -r  '.blocks[] | (input_filename, .scope, .range[1])' *_genome.json | paste - - - | sort -V > blocks.counts
   cat *_annotation.counts | sort -V > feature.counts
-  cat *_markers.counts | sort -V > markers.counts
+  cat *_{markers,transcripts,cds,genomic}.counts | sort -V > placed.counts
   grep "" *_aliases.len > aliases.counts
   """
   //jq '.blocks[]' ${f} | jq 'input_filename, .scope, (.features | length)' | paste - - | sort -V
