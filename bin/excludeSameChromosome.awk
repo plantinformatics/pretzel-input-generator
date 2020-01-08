@@ -1,9 +1,9 @@
-#!/usr/bin/awk -f
+#!/usr/bin/gawk -f
 
 BEGIN {
   OFS="\t";
 }
-NR==FNR && $3 ~/^chromosome/ {
+NR==FNR && $3 ~/^(chromosome|supercontig)/ {
   #gsub("^>","",$1)
   split($3,location,":");
   idmap[$1]=location[3];

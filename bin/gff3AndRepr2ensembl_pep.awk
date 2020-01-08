@@ -1,4 +1,4 @@
-#!/usr/bin/awk -f
+#!/usr/bin/gawk -f
 
 BEGIN {
   FS="\t";
@@ -15,7 +15,7 @@ NR==FNR {
 }
 
 NR!=FNR {
-  if($3 =="mRNA") {
+  if($3 =="CDS") {
     gsub("\"","");
     split($9,arr,";| ");
     for(i in arr) {
@@ -23,16 +23,33 @@ NR!=FNR {
       if(pair[1]=="ID") {
         transcript=pair[2];
       } else if(pair[1]=="Parent") {
-        gene=pair[2];
+        parent=pair[2];
+        gene=parent
         gsub(/\.[0-9]+$/,"",gene);
+      } else if(pair[1] ~ /^protein(_source)?_id$/)  {
+        source=pair[2];
       }
     }
-    if(transcript in repr && !(gene in printed)) {
+    # print "p="parent,"g="gene,"t="transcript,"s="source
+    # if(transcript in repr && !(gene in printed)) { 
+    if(!(parent in printed)) {
       #IGNORECASE=1;
       gsub(/chr_?/,"",$1);
       #IGNORECASE=0;
-      printed[gene]=1;
-      print ">"transcript" pep chromosome:"version":"$1":"$4":"$5" gene:"gene"\n"repr[transcript];
+      
+      if(source in repr) {
+        id = source
+      } else if(parent in repr) { #dealing with GFF files being inconsistent...
+        id = parent
+      } else {
+        id = ""
+      }
+    # if(source in repr && !(gene in printed)) {
+      # print ">"transcript" pep chromosome:"version":"$1":"$4":"$5" gene:"gene"\n"repr[transcript];
+      if(id) {
+        print ">"id" pep chromosome:"version":"$1":"$4":"$5" gene:"gene"\n"repr[id];       
+        printed[parent]=1;       
+      }
     }
   }
 }

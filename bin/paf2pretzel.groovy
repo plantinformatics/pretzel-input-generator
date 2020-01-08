@@ -5,7 +5,9 @@ import java.util.zip.GZIPInputStream
 import java.util.zip.GZIPOutputStream
 
 
-@Grab('info.picocli:picocli:4.0.0-alpha-3') //command line interface
+//@Grab('info.picocli:picocli-groovy:4.1.2') //command line interface
+groovy.grape.Grape.grab(group:'info.picocli', module:'picocli-groovy', version:'4.1.2')
+
 @Command(header = [
        //Font Name: Calvin S
        $/@|bold,blue  ╔═╗╔═╗╔═╗  ┌┬┐┌─┐  ╔═╗┬─┐┌─┐┌┬┐┌─┐┌─┐┬   |@/$,
@@ -51,6 +53,9 @@ import static picocli.CommandLine.*
 
 @Option(names = ["--align-params"], description = ["Params used to generate input PAF alignments"])
 @Field private String alignParams
+
+@Option(names = ["--allowed-target-id-pattern"], description = ["Provide target identifier patter if other than common chromosome naming"])
+@Field private String allowedTargetIdPattern
 
 @Option(names = ["-O", "--output"], description = ["JSON output file name"])
 @Field private String output = '/dev/stdout'
@@ -112,8 +117,12 @@ pafContent.eachLine { line ->
     // println "${query_identity} >= ${minIdentity} ?"
     if(query_identity >= minIdentity) {
       def kosher = true;
-      if(!(TNAME.toLowerCase() ==~ /^(chr(omosome)?)?(_)?([0-9]+|x|y|i|v).*/)) {
+      // println "check if TNAME kosher"
+      // if(!(TNAME.toLowerCase() ==~ /^(ch(romosome)?)?(_)?([0-9]+|x|y|i|v).*/)) {
+      // if(!(TNAME.toLowerCase() ==~ /^(ch(romosome)?)?(_)?([0-9]+|x|y|i|v|[0-9a-z_\-]).*/)) {        
+      if(!((TNAME.toLowerCase() =~ /^(ch|[0-9]{1,2}|x|y|i|v)/) || (TNAME =~ allowedTargetIdPattern) )) {
         kosher = false //don't report placement on plasmid or other non-pseudomolecule parts of assembly
+        // println "${allowedTargetIdPattern} not matching $TNAME"
       } else if(markerMode && query_identity < 1) { //Not a 100% match, so for markers we check if no MM in last 3 bases - if notMarkerMode the required tag may not be present
         TAGS.each { tag ->
           if(tag.startsWith('cs:Z')) {
@@ -129,6 +138,7 @@ pafContent.eachLine { line ->
       }
 
       if(kosher) {
+        // println TNAME
         def key = TNAME.replaceFirst("^(C|c)(H|h)(R|r)[_]?","")
         if(!scope.containsKey(key)) {
           scope << [(key) : []]

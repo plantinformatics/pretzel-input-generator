@@ -5,11 +5,22 @@ if(workflow.profile.contains('BUSCOs')) {
   exit 1
 }
 
-//INPUT PARAMS
-trialLines = params.trialLines
-// eprelease = params.eprelease
 
-import static groovy.json.JsonOutput.*
+// import static groovy.json.JsonOutput.*
+//For pretty-printing nested maps etc
+import groovy.json.JsonGenerator 
+import groovy.json.JsonSlurper
+import groovy.json.JsonOutput
+
+//Preventing stack overflow on Path objects and other  when map -> JSON
+JsonGenerator jsonGenerator = new JsonGenerator.Options()
+                .addConverter(java.nio.file.Path) { java.nio.file.Path p, String key -> p.toUriString() }
+                .addConverter(Duration) { Duration d, String key -> d.durationInMillis }
+                .addConverter(java.time.OffsetDateTime) { java.time.OffsetDateTime dt, String key -> dt.toString() }                
+                .addConverter(nextflow.NextflowMeta) { nextflow.NextflowMeta m, String key -> m.toJsonMap() }  //incompatible with Nextflow <= 19.04.0 
+                .excludeFieldsByType(java.lang.Class) // .excludeFieldsByName('class')
+                // .excludeNulls()
+                .build()
 
 //Otherwise JSON generation triggers stackoverflow when encountering Path objects
 jsonGenerator = new groovy.json.JsonGenerator.Options()
@@ -38,78 +49,27 @@ if (params.help){
     exit 0
 }
 
-//STATIC(?) ENSEMBL URLs
-urlprefix = params.urlprefix
-pepsuffix = params.pepsuffix
-idxsuffix = params.idxsuffix
-fastasuffix = params.fastasuffix
 
 // def noKeyOrIsMap
 
 //LOCAL marker/contigs to place sets
 
 Channel.from(params.sequencesToPlace)
-.filter { params.sequencesToPlace != "NA" } 
 .map {
   [it, file(it.fasta)]
 }
 .set{ sequencesToPlaceChannel }
 
-//LOCAL INPUTS
-localInput = Channel.create()
-localIndices = Channel.create()
-localGenomeSeqs = Channel.create()
-  params.localAssembly.each {
-     //Genome Fasta optional (?)
-    if(it.containsKey("fasta")) {
-      localGenomeSeqs << [it,file(it.fasta)]
-      it.remove('fasta') //preventing cached re runs after fasta added to meta
-    }
-    // println(prettyPrint(toJson(it)))
-    // for (key in ["gtf","gff3"]) {
-    key = 'gtfgff3'
-    // if(it.containsKey(key)) {
-    //IF MORE THAN ONE ANNOTATION PER GENOME
-    if(it.containsKey("pep")) {
-      if(it.pep instanceof Map) { // && it.containsKey(key) && it.get(key) instanceof Map) {
-        it.pep.each {id, pep ->
-        // println(id+" -> "+pep)
-          clone = it.clone()
-          clone.annotation = id
-          gtfgff3 = (it.containsKey(key) && it.get(key).containsKey(id)) ? file(it.get(key).get(id)) : null
-            localInput << [clone,gtfgff3,file(pep)]
-        }
-      } else { //if (!(it.pep instanceof Map) && !(it.get(key) instanceof Map)){
-        gtfgff3 = it.containsKey(key) ? file(it.get(key)) : null
-        localInput << [it,gtfgff3,file(it.pep)]
-        // } else {
-        //   exitOnInputMismatch(it)
-      }
-    }
-    //ALL SHOULD HAVE AN INDEX
-    if(it.containsKey("idx")) {
-      localIndices << [it,file(it.idx)]
-    }
+//INPUT DATA
 
-  }
-localInput.close()
-localIndices.close()
-localGenomeSeqs.close()
 
-// def exitOnInputMismatch(data) {
-//   println("Malformed input. Expecting number of pep and gtf/gff3 inputs to match for a data set.")
-//   println("Offending data set: ")
-//   println(data)
-//   println("Terminating.")
-//   System.exit(1)
-// }
 
 
 /*
   Generic method for extracting a string tag or a file basename from a metadata map
  */
 def getAnnotationTagFromMeta(meta, delim = '_') {
-  return meta.species+delim+meta.version+(meta.containsKey("annotation") ? delim+meta.annotation : "")+(trialLines == null ? "" : delim+trialLines+delim+"trialLines")
+  return meta.species+delim+meta.version+(meta.containsKey("annotation") ? delim+meta.annotation : "")
 }
 
 
@@ -117,58 +77,23 @@ def getAnnotationTagFromMeta(meta, delim = '_') {
   Generic method for extracting a string tag or a file basename from a metadata map
  */
 def getDatasetTagFromMeta(meta, delim = '_') {
-  return meta.species+delim+meta.version+(trialLines == null ? "" : delim+trialLines+delim+"trialLines")
+  return meta.species+delim+meta.version
 }
 
+Channel.from(params.references)
+  .into { refsChannel1; refsChannel2 ; refsChannel3}
 
-
-/*
-* Download peptide seqs and assembly index files from Ensembl plants
-*/
-process fetchRemoteDataFromEnsembl {
-  tag{meta.subMap(['species','version','release'])}
-  label 'download'
-
-  input:
-    set val(species), val(version), val(shortName), val(eprelease) from Channel.from(params.remoteAssembly)
-
-  output:
-    set val(meta), file("${basename}.idx") into remoteIndices
-    set val(meta), file("${basename}.pep") into remotePepSeqs
-    set val(meta), file("${basename}.fasta") into remoteGenomeSeqs
-
-  script:
-    meta=["species":species, "version":version, "source": "https://plants.ensembl.org/"+species, "release": eprelease, "shortName": shortName]
-    basename=getDatasetTagFromMeta(meta)
-    idxurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/dna_index/"+species+"."+version+idxsuffix
-    fastaurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/dna/"+species+"."+version+fastasuffix
-    pepurl=urlprefix+eprelease+"/fasta/"+species.toLowerCase()+"/pep/"+species+"."+version+pepsuffix
-    //Someone decided to embed Genus_species in version as well,
-    //must be kept there to fetch from Ensembl plants but otherwise annoying as makes data set names long and repetitive
-    //could be solved by explicitly setting pathis in input config (e.g. conf/triticeae.config)
-    meta.version = ((meta.version-meta.species).strip('_'))
-    if(trialLines == null) {
-      """
-      curl $idxurl > ${basename}.idx
-      curl $fastaurl | gunzip --stdout > ${basename}.fasta
-      curl $pepurl | gunzip --stdout > ${basename}.pep
-      """
-    } else {
-      """
-      curl $idxurl > ${basename}.idx
-      curl $fastaurl | gunzip --stdout | head -n ${trialLines} > ${basename}.fasta
-      curl $pepurl | gunzip --stdout | head -n ${trialLines} > ${basename}.pep
-      """
-    }
-}
 
 
 process alignToGenome {
   label 'minimap2'
-
   tag {"${refmeta.subMap(['species','version'])} <- ${seqsmeta.name}"}
+
   input:
-    set val(refmeta), file(ref), val(seqsmeta), file(seqs) from remoteGenomeSeqs.mix(localGenomeSeqs).combine(sequencesToPlaceChannel) // <=========
+    tuple val(refmeta), file(ref), val(seqsmeta), file(seqs) from refsChannel2
+        .filter { it.containsKey('fasta') }
+        .map { [it, file(it.fasta)]}
+        .combine(sequencesToPlaceChannel)
 
   output:
     set val(outmeta), file('*.paf') into alignedSeqsChannel
@@ -259,9 +184,37 @@ process generateFeaturesFromSeqAlignmentsJSON {
     --short-name ${meta.seqs.name} \
     --align-tool ${meta.align.tool} \
     --align-params "${meta.align.params}" \
+    --allowed-target-id-pattern '${meta.ref.allowedIdPattern}' \
     --output ${tag}_${meta.seqs.seqtype}.json.gz \
     --out-counts ${tag}_${meta.seqs.seqtype}.counts
   """
+}
+
+refsChannel1
+  .branch { meta -> //redirect data sets; ones without fai idx will need to have it generated
+    ready: meta.containsKey('idx')
+      [meta, file(meta.idx)]
+    faidx: meta.containsKey('fasta')
+      [meta, file(meta.fasta)]
+  }
+  .set { refs4genomeBlocks1 }
+
+process faidxAssembly {  
+  tag{tag}
+  label 'samtools'
+
+  input:
+    tuple val(meta), file(fasta) from refs4genomeBlocks1.faidx
+  
+  output:
+    tuple val(meta), file("${fasta}.fai") into refs4genomeBlocks2
+
+  script:
+    tag=getDatasetTagFromMeta(meta)
+    """
+    #if err, likely due to gzipped not bgzipped fasta then index flat - we just need the lengths not the index!
+    samtools faidx ${fasta} || (zcat ${fasta} > tmp && samtools faidx tmp && mv tmp.fai ${fasta}.fai)
+    """
 }
 
 /*
@@ -273,7 +226,7 @@ process generateGenomeBlocksJSON {
   label 'groovy'
 
   input:
-    set val(meta), file(idx) from localIndices.mix(remoteIndices)
+    tuple val(meta), file(idx) from refs4genomeBlocks1.ready.mix(refs4genomeBlocks2)
 
   output:
     file "*.json" into genomeBlocksJSON, genomeBlocksStats
@@ -305,7 +258,7 @@ process generateGenomeBlocksJSON {
     genome.meta << ["type" : "Genome"]
     genome.blocks = []
     idx.eachLine { line ->
-      if(line.toLowerCase() =~ /^(chr|[0-9]{1,2}|x|y|i|v)/ ) {
+      if(line.toLowerCase() =~ /^(ch|[0-9]{1,2}|x|y|i|v)/ || line ==~ '${meta.allowedIdPattern}' ) {
         toks = line.split('\\t| ')
         genome.blocks += [ "scope": toks[0].replaceFirst("^(C|c)(H|h)(R|r)[_]?",""), "featureType": "linear", "range": [1, toks[1].toInteger()] ]
       }
@@ -318,45 +271,43 @@ process generateGenomeBlocksJSON {
     """
 }
 
-
-/*
- Given a FASTA with representative peps and the corresponding gtfgff3
- output FASTA with representative peps and definition lines
- mimicking the ensembl plants (EP) format for such data - this can then
- be piped into the same processes which we use for chewing through EP data
-*/
-process convertReprFasta2EnsemblPep {
-  tag{tag}
-  // label 'fastx'
-
-  input:
-    //val arr from localInput
-    set (val(meta), file(gtfgff3), file(reprPep)) from localInput
-
-  output:
-    set val(meta), file(pep) into localPepSeqs4Features, localPepSeqs4Aliases1, localPepSeqs4Aliases2
-
-  script:
-    tag=getAnnotationTagFromMeta(meta)
-    //TRIAL RUN? ONLY TAKE FIRST n LINES
-    cmd = trialLines != null ? "head -n ${trialLines}" : "cat"
-    if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gtf\$")) {
-      // println("MATCHED gtf: "+gtfgff3)
-        """
-        ${cmd} ${reprPep} |  fasta_formatter | gtfAndRepr2ensembl_pep.awk -vversion="${meta.version}" - ${gtfgff3} > pep
-        """
-    } else if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gff(3)?\$")) { //if(meta.containsKey("gff3")) {
-      // println("MATCHED gff3: "+gtfgff3)
-        """
-        ${cmd} ${reprPep} | fasta_formatter | gff3AndRepr2ensembl_pep.awk -vversion="${meta.version}"  - ${gtfgff3} > pep
-        """
-    } else { //ASSUMING ENSEMBL PLANTS-LIKE FORMATTED PEPTIDE FASTA
-      // println("NOT MATCHED gtfgff3: "+gtfgff3)
-        """
-        cp --no-dereference ${reprPep} pep
-        """
+refsChannel3
+  // .view {
+  //   """
+  //   ${it} 
+  //   ${it.containsKey('gff3')} 
+  //   ${it.containsKey('gtf')}
+  //   ${(it.containsKey('gff3') || it.containsKey('gtf'))}
+  //   ${!(it.containsKey('gff3') || it.containsKey('gtf'))}
+  //   """
+  // }
+  .filter { meta -> meta.containsKey('pep') }
+  .map { meta -> // DUPLICATE EMISSIONS IF MULTIPLE ANNOTATIONS PER REFERENCE ASSEMBLY
+    if(meta.pep instanceof Map) {
+      def repeated = []
+      meta.pep.each { k,v ->
+        def item = meta.subMap(meta.keySet().minus(['pep','gff3','gtf'])) + [pep: v, annotation: k] 
+        if(meta.containsKey('gff3') && meta.gff3.containsKey(k)) {
+          item.gff3 = meta.gff3."${k}"
+        } else if(meta.containsKey('gtf') && meta.gtf.containsKey(k)) {
+          item.gtf = meta.gtf."${k}"
+        } 
+        repeated << item
+      }
+      repeated
+    } else {
+      meta
     }
-}
+  }
+  .flatten()
+  .branch { meta -> //redirect data sets; ones with pep but without gff/gtf are assumed to be in ENSEMBL format 
+     pep4Conversion: (meta.containsKey('gff3') || meta.containsKey('gtf'))
+     pepEnsembl: !(meta.containsKey('gff3') && !meta.containsKey('gtf'))
+       [meta, file(meta.pep)]
+  }
+  .set { refsWithPepChannel }
+
+// refsWithPepChannel.pep4Conversion.view { it -> groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(it))}
 
 /*
  Only keep "representative" splice form for each gene,
@@ -367,20 +318,69 @@ process convertReprFasta2EnsemblPep {
 */
 process filterForRepresentativePeps {
   tag{meta.subMap(['species','version'])}
-  // label 'fastx'
+  label 'fastx'
   input:
-    set val(meta), file(pep) from remotePepSeqs
+    set val(meta), file(pep) from refsWithPepChannel.pepEnsembl
 
   output:
-    set val(meta), file("${tag}_repr.pep") into remotePepSeqs4Features, remotePepSeqs4Aliases1, remotePepSeqs4Aliases2
+    set val(meta), file("${tag}_repr.pep.gz") into representativePepSeqs4Features, representativePepSeqs4Aliases1, representativePepSeqs4Aliases2
 
   script:
     tag=getAnnotationTagFromMeta(meta)
+    cmd = "${pep}".endsWith(".gz") ? "zcat" : "cat"
     """
-    fasta_formatter < ${pep} | paste - - | filterForRepresentative.awk > ${tag}_repr.pep
-    [ -s ${tag}_repr.pep ] || (echo 'Error! Empty output file! ${tag}_repr.pep'; exit 1)
+    ${cmd} ${pep} | fasta_formatter | paste - - | filterForRepresentative.awk | gzip -c > ${tag}_repr.pep.gz
+    [ ! -z \$(zcat ${tag}_repr.pep.gz | head -c1) ] || (echo 'Error! Empty output file! ${tag}_repr.pep.gz'; exit 1) 
     """
 }
+
+
+/*
+ Given a FASTA with representative peps and the corresponding gtfgff3
+ output FASTA with representative peps and definition lines
+ mimicking the ensembl plants (EP) format for such data - this can then
+ be piped into the same processes which we use for chewing through EP data
+*/
+process convertReprFasta2EnsemblPep { //TODO - NOT WORKING IF ENSEMB-FORMATTED INPUT (should not be used here but need to pass-through if already formatted?)
+  tag{tag}
+  label 'fastx'
+
+  input:
+    tuple (val(meta), file(gtfgff3), file(reprPep)) from refsWithPepChannel.pep4Conversion
+      //.filter { meta -> meta.containsKey('pep') && (meta.containsKey('gff3') || meta.containsKey('gtf'))}
+      .map { meta ->  [ meta, file( meta.containsKey('gff3') ? meta.gff3 : meta.gtf ), file( meta.pep ) ] }
+
+  output:
+    tuple val(meta), file('pep.gz') into pepSeqs4Features, pepSeqs4Aliases1, pepSeqs4Aliases2
+
+  script:
+    tag=getAnnotationTagFromMeta(meta)
+    //TRIAL RUN? ONLY TAKE FIRST n LINES
+    
+    
+    cmd0 = "${reprPep}".endsWith(".gz") ? "zcat" : "cat"
+    cmd1 = "${gtfgff3}".endsWith(".gz") ? "zcat" : "cat"
+    // if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gtf\$")) {
+    if(meta.containsKey("gtf")) {
+        """
+        ${cmd0} ${reprPep} |  fasta_formatter | gtfAndRepr2ensembl_pep.awk -vversion="${meta.version}" - <(${cmd1} ${gtfgff3}) | gzip  > pep.gz
+        [ ! -z \$(zcat pep.gz | head -c1) ] || (echo 'Error! Empty output file! pep.gz'; exit 1)
+        """
+    } else { //if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gff(3)?\$")) { //if(meta.containsKey("gff3")) {
+      // println("MATCHED gff3: "+gtfgff3)
+        """
+        ${cmd0} ${reprPep} | fasta_formatter | gff3AndRepr2ensembl_pep.awk -vversion="${meta.version}"  - <(${cmd1} ${gtfgff3}) | gzip > pep.gz
+        [ ! -z \$(zcat pep.gz | head -c1) ] || (echo 'Error! Empty output file! pep.gz'; exit 1)
+        """
+    // } else { //ASSUMING ENSEMBL PLANTS-LIKE FORMATTED PEPTIDE FASTA
+    //   // println("NOT MATCHED gtfgff3: "+gtfgff3)
+    //     """
+    //     cp --no-dereference ${reprPep} pep
+    //     """
+    }
+}
+
+
 
 
 /*
@@ -391,24 +391,32 @@ process generateFeaturesJSON {
   tag{tag}
   label 'json'
   label 'groovy'
+  echo true
+  errorStrategy 'terminate'
 
   input:
-    set val(meta), file(pep) from localPepSeqs4Features.mix(remotePepSeqs4Features)
+    set val(meta), file(pep) from representativePepSeqs4Features.mix(pepSeqs4Features)
+    // set val(meta), file(pep) from refsChannel2.map { meta -> [meta, file(meta.pep)] }
 
   output:
     file "*.json.gz" into featuresJSON
     file "*.counts" into featuresCounts
 
   script:
-
     tag=getAnnotationTagFromMeta(meta)
     genome=getDatasetTagFromMeta(meta)
     shortName = (meta.containsKey("shortName") ? meta.shortName+"_genes" : "")
     shortName +=(meta.containsKey("annotation") ? "_"+meta.annotation : "") //only for cases where multiple annotations per genome
+    // """
+    // ls -la
+    // """
     """
     #!/usr/bin/env groovy
 
+    import java.util.zip.GZIPInputStream
+    import java.util.zip.GZIPOutputStream
     import static groovy.json.JsonOutput.*
+
     pep = new File('${pep}').text
     out = new File('${tag}_annotation.json')
     counts = new File('${tag}_annotation.counts')
@@ -432,14 +440,18 @@ process generateFeaturesJSON {
     annotation.parent = "${genome}"
     annotation.blocks = []
     TreeMap scope = [:] //keep keys sorted as the corresponding blocks get displayed in order in pretzel
-    pep.eachLine { line ->
+    def pepStream = new FileInputStream(new File('${pep}'))
+    def inStream = '${pep}'.endsWith('.gz') ? new GZIPInputStream(pepStream , 1024) : pepStream
+    def content = new BufferedReader(new InputStreamReader(inStream, "UTF-8"), 1024);
+    while ((line = content.readLine()) != null && !line.isEmpty() ) {
+    // pep.eachLine { line ->
       if(line =~ /^>/ ) {
         toks = line.split()
         location = toks[2].split(":")
         gene = toks[3].split(":")
-        key = location[2].replaceFirst("^(C|c)(H|h)(R|r)[_]?","")
+        key = location[2].replaceFirst("^(C|c)(H|h)(R|r)?[_]?","")
         //Skip non-chromosome blocks
-        if(key.toLowerCase() =~ /^(chr|[0-9]|x|y|i|v)/ ) {
+        if(key.toLowerCase() =~ /^(ch|[0-9]|x|y|i|v)/ || key ==~ '${meta.allowedIdPattern}' ) {
           if(!scope.containsKey(key)) {
             scope << [(key) : []]
           }
@@ -467,30 +479,11 @@ process generateFeaturesJSON {
     """
 }
 
-
-
-// //REPEAT INPUT FOR EACH SUBGENOME
-// localPepSeqs4AliasesRep = Channel.create()
-// localPepSeqs4Aliases.subscribe onNext: {
-//   // println it[0]
-//   if(it[0].containsKey("subgenomes")) {
-//     for(subgenome in it[0].subgenomes) {
-//       clone = it[0].clone()
-//       clone.subgenome = subgenome
-//       localPepSeqs4AliasesRep << [clone,it[1]]
-//     }
-//   } else {
-//     localPepSeqs4AliasesRep << it
-//   }
-// }, onComplete: { localPepSeqs4Aliases.close(); localPepSeqs4AliasesRep.close() }
-
-
-//COMBINE AND FILTER DUPLICATED CHANNEL TO ALLOW ALL VS ALL DATASETS COMPARISONS
-// remotePepSeqs4AliasesCombined = remotePepSeqs4Aliases1.mix(localPepSeqs4AliasesRepSplit1).combine(remotePepSeqs4Aliases2.mix(localPepSeqs4AliasesRepSplit2))
-pepSeqs4AliasesCombined = remotePepSeqs4Aliases1.mix(localPepSeqs4Aliases1).combine(remotePepSeqs4Aliases2.mix(localPepSeqs4Aliases2))
+pepSeqs4AliasesCombined = representativePepSeqs4Aliases1.mix(pepSeqs4Aliases1).combine(representativePepSeqs4Aliases2.mix(pepSeqs4Aliases2))
   .filter { getAnnotationTagFromMeta(it[0]) <= getAnnotationTagFromMeta(it[2])  }  //[species,version,file.pep]
-
-// .collect().subscribe{ println it.combinations().each { a, b -> a[0].species < b[0].species} }
+  // .first()
+  // .view{ [it[0].species, it[2].species] }
+  // .view { it -> groovy.json.JsonOutput.prettyPrint(jsonGenerator.toJson(it))}
 
 /*
 * Identify best hit for each pep
@@ -501,7 +494,7 @@ process pairProteins {
   errorStrategy 'ignore'
 
   input:
-    set val(metaA), file('pepA'), val(metaB), file('pepB') from pepSeqs4AliasesCombined
+    set val(metaA), file('pepA.gz'), val(metaB), file('pepB.gz') from pepSeqs4AliasesCombined
 
   output:
      set val(metaA), val(metaB), file("*.tsv"), file(idlines) into pairedProteins
@@ -512,12 +505,12 @@ process pairProteins {
     meta = ["query": tagA, "target": tagB]
     basename=tagA+"_VS_"+tagB
     """
-    mmseqs easy-search ${pepA} ${pepB} ${basename}.tsv \${TMPDIR:-/tmp}/${basename} \
+    mmseqs easy-search pepA.gz pepB.gz ${basename}.tsv \${TMPDIR:-/tmp}/${basename} \
     --format-mode 2 \
     -c ${params.minCoverage} \
     --min-seq-id ${params.minIdentity} \
     --threads ${task.cpus} -v 1 \
-    && grep --no-filename '^>' ${pepA} ${pepB} | sed 's/^>//' > idlines
+    && zcat pepA.gz pepB.gz | grep --no-filename '^>'  | sed 's/^>//' > idlines
     """
     //'qaccver saccver pident length mismatch gapopen qstart qend sstart send evalue bitscore qlen slen'
 }
@@ -575,9 +568,6 @@ process generateAliasesJSON {
     //    sed -e '1 i\[' -e '$ i\]'
 }
 
-
-
-
 process stats {
   label 'summary'
   label 'jq'
@@ -595,12 +585,11 @@ process stats {
   """
   jq -r  '.blocks[] | (input_filename, .scope, .range[1])' *_genome.json | paste - - - | sort -V > blocks.counts
   cat *_annotation.counts | sort -V > feature.counts
-  cat *_markers.counts | sort -V > markers.counts
+  cat *_{markers,transcripts,cds,genomic}.counts | sort -V > placed.counts
   grep "" *_aliases.len > aliases.counts
   """
   //jq '.blocks[]' ${f} | jq 'input_filename, .scope, (.features | length)' | paste - - | sort -V
 }
-
 
 process pack {
   label 'archive'
