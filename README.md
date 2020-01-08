@@ -6,6 +6,17 @@
 
 
 **Note that this README is partly out-of-date **
+- [Pipeline overview](#pipeline-overview)
+- [Default pipeline](#default-pipeline)
+  - [Quick start example using microsporidia data](#quick-start-example-using-microsporidia-data)
+  - [Input specification (triticeae and other relevant data sets)](#input-specification-triticeae-and-other-relevant-data-sets)
+    - [Disparate triticeae datasets](#disparate-triticeae-datasets)
+  - [Dependencies](#dependencies)
+  - [Execution](#execution)
+  - [Output](#output)
+- [BUSCO-based pipeline](#busco-based-pipeline)
+  - [Quick-ish start](#quick-ish-start)
+  - [Output](#output-1)
 
 
 # Pipeline overview
