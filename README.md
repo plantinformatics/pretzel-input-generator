@@ -2,40 +2,18 @@
 
 [![GitHub commits since latest release](https://img.shields.io/github/commits-since/plantinformatics/pretzel-input-generator/latest.svg?style=for-the-badge&logo=github)](https://github.com/plantinformatics/pretzel-input-generator/releases)
 
-![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/plantinformatics/pretzel-input-generator/CI/feature/streamline-inputs?label=DEV%20BRANCH%20TESTS&logo=github&style=for-the-badge)
-
-![GitHub Workflow Status (branch)](https://img.shields.io/github/workflow/status/plantinformatics/pretzel-input-generator/CI/master?label=CI%20TESTS&logo=github&style=for-the-badge)
-
 ![GitHub Workflow Status](https://img.shields.io/github/workflow/status/plantinformatics/pretzel-input-generator/CI?label=CI%20TESTS&logo=github&style=for-the-badge)
 
-Note that this description lacks detail which will be added in future releases.
+
+**Note that this README is partly out-of-date **
+
 
 # Pipeline overview
 
-`pretzel-input-generator` is a [nextflow](https://www.nextflow.io) pipeline for generating input for [pretzel](https://github.com/plantinformatics/pretzel) from annotated and (mostly) contiguous genome assemblies. The pipeline requires approximately 1 cpu-day, but as many processes can run independently, the real run-time is much shorter if suitable compute resources are available.
+`pretzel-input-generator` is a [nextflow](https://www.nextflow.io) pipeline for generating input for [pretzel](https://github.com/plantinformatics/pretzel) from annotated and (mostly) contiguous genome assemblies. The pipeline requires approximately ??? cpu-???, but as many processes can run independently, the real run-time is much shorter if suitable compute resources are available.
 
 
-
-
-
-<!-- TOC -->
-
-- [Pipeline overview](#pipeline-overview)
-- [Default pipeline](#default-pipeline)
-  - [Quick start example using yeast data](#quick-start-example-using-yeast-data)
-  - [Input specification (triticeae and other relevant data sets)](#input-specification-triticeae-and-other-relevant-data-sets)
-    - [Data sources](#data-sources)
-      - [Remote](#remote)
-      - [Local](#local)
-    - [Other considerations](#other-considerations)
-  - [Dependencies](#dependencies)
-  - [Execution](#execution)
-  - [Output](#output)
-- [BUSCO-based pipeline](#busco-based-pipeline)
-  - [Quick-ish start](#quick-ish-start)
-  - [Output](#output-1)
-
-<!-- /TOC -->
+<!-- TODO: re-generate TOC -->
 
 # Default pipeline
 
@@ -44,54 +22,34 @@ Designed for EnsemblPlants and similarly formatted data.
 ![doc/dag.png](doc/dag.png)
 
 
-## Quick start example using yeast data
+## Quick start example using microsporidia data
 
 
-Requires [nextflow](https://www.nextflow.io) and [Singularity](http://singularity.lbl.gov)
+Requires [nextflow](https://www.nextflow.io) and either [Singularity](http://singularity.lbl.gov)
 
 ```
 nextflow run plantinformatics/pretzel-input-generator \
--profile YEAST,singularity --max_cpus 2 --max_memory 2.GB 
+-profile MICROSPORIDIA,singularity --max_cpus 2 --max_memory 2.GB 
 ```
 
-This will pull and process data sets from [Ensembl](https://ensembl.org) specified in [`conf/ensembl-yeast.config`](conf/ensembl-yeast.config)
+This will pull and process data sets specified in [`conf/microsporidia.config`](conf/microsporidia.config)
+
 
 ## Input specification (triticeae and other relevant data sets)
 
-Input files are specified in [conf/triticeae.config](conf/triticeae.config). This can be supplemented/replaced by JSON/YAML formatted input spec.
+A mix of local and remote files can be specified - see [`conf/microsporidia.config`](conf/microsporidia.config) and the corresponding [`conf/test-data.config`](conf/test-data.config)
 
-### Data sources
+There are several paths through the pipeline which are executed depending on input specification and availability of various input file types, e.g. 
 
-Currently all input data comes from the following sources:
-
-* [Ensembl plants](https://plants.ensembl.org) - multiple datasets as specified in [`conf/triticeae.config`](conf/triticeae.config) and
-* [International Wheat Genome Sequencing Consortium](https://www.wheatgenome.org/)
-  * [Triticum aestivum (Chinese Spring) IWGSC RefSeq v1.0 assembly](https://wheat-urgi.versailles.inra.fr/Seq-Repository/Assemblies)
-* [The wild emmer wheat sequencing consortium (WEWseq)](http://wewseq.wixsite.com/consortium)
-  * Zavitan assembly downloaded from [GrainGenes](https://wheat.pw.usda.gov/GG3/wildemmer)
-* [European Nucleotide Archive](https://www.ebi.ac.uk/ena)
-  * [Assembly of chromosome 2D of *Triticum aestivum* line CH Campala *Lr22a*](https://www.ebi.ac.uk/ena/data/view/LS480641)
-  * [Assembly of *Triticum urartu* ](https://www.ebi.ac.uk/ena/data/view/GCA_003073215)
-    * Annotation downloaded from [MBKBase](http://www.mbkbase.org/Tu/)
-  * [Assembly of *Aegilops tauschii* ](https://www.ebi.ac.uk/ena/data/view/GCA_002575655.1)
-    * Annotation downloaded from [http://aegilops.wheat.ucdavis.edu/ATGSP/annotation/](http://aegilops.wheat.ucdavis.edu/ATGSP/annotation/)
-* ...and more...
-*
-#### Remote
-
-The pipeline pulls data from Ensembl, included species and assembly versions are specified in configuration file(s) e.g. [conf/ensembl-plants-data.config](conf/ensembl-plants-data.config).
-For each of the data sets the pipeline downloads:
-
-
-* genome assembly index file (required)
+* genome assembly index file 
 * protein sequences (required if pipeline is to generate aliases)
-* genome assembly fasta (only required if pipeline is to place markers on assemblies)
+* marker sequences
+* genome assembly fasta (required if pipeline is to place marker sequences on assemblies)
 
-#### Local
+Different paths through the pipeline rely on partly different inputs
 
-Different branches of the pipeline rely on partly different inputs
+1. Generation of genome blocks requires a genome assembly index file - all we really need are lengths of pseudo-chromosomes so a two-column `.tsv` file with chromosome names and their lengths will suffice. Also, if genome assembly fasta file is specified, the index will be generated automatically.
 
-1. Generation of genome blocks requires a genome assembly index file - all we really need are lengths of pseudo-chromosomes so a two-column `.tsv` file with chromosome names and their lengths will suffice
 2. Placement of gene features on the generated genome blocks and generation of aliases between features requires
 
   * gene annotations (either GTF or GFF3)
@@ -111,9 +69,10 @@ This follows how protein sequences are annotated on Ensembl plants, but we do no
 
 4. Marker placement requires full reference FASTA file.
 
-### Other considerations
 
-Wherever possible the local assembly files are used as input for the pipeline in their original form - as downloaded from their respective sources. This is however not always possible due to inconsistencies in formatting and varying levels of adherence to standards and conventions. We try to capture additional steps needed to prepare these input data sets for the inclusion in this pipeline in [doc/format_local.md](doc/format_local.md).
+### Disparate triticeae datasets 
+
+Wherever possible the assembly files are used as input for the pipeline in their original form - as downloaded from their respective sources. This is however not always possible due to inconsistencies in formatting and varying levels of adherence to standards and conventions. We try to capture additional steps needed to prepare these input data sets for the inclusion in this pipeline in [doc/format_local.md](doc/format_local.md).
 
 ## Dependencies
 
@@ -123,14 +82,13 @@ Wherever possible the local assembly files are used as input for the pipeline in
   * [Docker](http://singularity.lbl.gov)
   * Required software installed. In addition to standard linux tools, these include:
     * [FASTX-Toolkit](http://hannonlab.cshl.edu/fastx_toolkit/)
-    * [MMSeqs2](https://github.com/soedinglab/mmseqs2)
+    * [MMSeqs2](https://github.com/soedinglab/mmseqs2) - if generating aliases
     * [Minimap2](https://github.com/lh3/minimap2) - if placing markers
     * `jq`
     * `groovy` interpreter
   
-
 When using Singularity or Docker, the required containers are specified in [`conf/containers.conf`](conf/containers.config)
-
+and pulled by Nextflow as required.
 
 ## Execution
 
@@ -140,21 +98,21 @@ Run locally with docker
 
 ```
 nextflow run plantinformatics/pretzel-input-generator \
--profile YEAST,docker 
+-profile MICROSPORIDIA,docker 
 ```
 
 Run locally with singularity
 
 ```
 nextflow run plantinformatics/pretzel-input-generator \
--profile YEAST,singularity 
+-profile MICROSPORIDIA,singularity 
 ```
 
 Dispatch on a SLURM cluster with singularity
 
 ```
 nextflow run plantinformatics/pretzel-input-generator \
--profile YEAST,slurm,singularity
+-profile MICROSPORIDIA,slurm,singularity
 ```
 
 ## Output
@@ -171,13 +129,13 @@ All generated JSON files generated by the pipeline are output to `results/JSON`.
 
 The output files (hopefully) conform to the requirements of [pretzel data structure](https://github.com/plantinformatics/pretzel-data).
 
-
 The `results/flowinfo` directory contains summaries of pipeline execution and `results/downloads` includes the files downloaded from Ensembl plants.
 
 ```
 results
 ├── downloads
 ├── flowinfo
+├── summary
 └── JSON
 ```
 
