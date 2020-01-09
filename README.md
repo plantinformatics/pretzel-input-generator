@@ -2,7 +2,9 @@
 
 [![GitHub commits since latest release](https://img.shields.io/github/commits-since/plantinformatics/pretzel-input-generator/latest.svg?style=for-the-badge&logo=github)](https://github.com/plantinformatics/pretzel-input-generator/releases)
 
-![GitHub Workflow Status](https://img.shields.io/github/workflow/status/plantinformatics/pretzel-input-generator/CI?label=CI%20TESTS&logo=github&style=for-the-badge)
+[![GitHub Workflow Status](https://img.shields.io/github/workflow/status/plantinformatics/pretzel-input-generator/CI?label=CI%20TESTS&logo=github&style=for-the-badge)](https://github.com/plantinformatics/pretzel-input-generator/actions)
+
+[![Actions Status](https://github.com/plantinformatics/pretzel-input-generator/workflows/CI/badge.svg)](https://github.com/plantinformatics/pretzel-input-generator/actions)
 
 
 **Note that this README is partly out-of-date **
