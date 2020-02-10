@@ -45,7 +45,7 @@ nextflow run plantinformatics/pretzel-input-generator \
 This will pull and process data sets specified in [`conf/microsporidia.config`](conf/microsporidia.config)
 
 
-## Input specification (triticeae and other relevant data sets)
+## Input specification
 
 A mix of local and remote files can be specified - see [`conf/microsporidia.config`](conf/microsporidia.config) and the corresponding [`conf/test-data.config`](conf/test-data.config)
 
