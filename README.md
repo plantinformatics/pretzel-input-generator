@@ -8,7 +8,7 @@
 - [Pipeline overview](#pipeline-overview)
 - [Default pipeline](#default-pipeline)
   - [Quick start example using microsporidia data](#quick-start-example-using-microsporidia-data)
-  - [Input specification (triticeae and other relevant data sets)](#input-specification-triticeae-and-other-relevant-data-sets)
+  - [Input specification](#input-specification)
     - [Disparate triticeae datasets](#disparate-triticeae-datasets)
   - [Dependencies](#dependencies)
   - [Execution](#execution)
