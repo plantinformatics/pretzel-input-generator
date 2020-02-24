@@ -31,6 +31,9 @@ import static picocli.CommandLine.*
 @Option(names = ["-c", "--csv"], description = ["Input CSV file name"])
 @Field private String csv = '/dev/stdin'
 
+@Option(names = ["-a", "--allowed-target-id-pattern"], description = ["Provide target identifier patter if other than common chromosome naming"])
+@Field private String allowedTargetIdPattern
+
 @Option(names = ["-O", "--output"], description = ["JSON output file name"])
 @Field private String output = '/dev/stdout'
 
@@ -64,16 +67,19 @@ try {
 
   def csvContentBuffer = new BufferedReader(new InputStreamReader(new FileInputStream(csvFile), "UTF-8"), BUFFER_SIZE);
   while ((line = csvContentBuffer.readLine()) != null && !line.isEmpty() && !line.matches('^@')) {
-    (MARKER, BLOCK, POS) = line.split(',')
-    double position = POS.toDouble()
+    def (MARKER, BLOCK, POS1, POS2) = line.tokenize(',|\t')
+    def POS1NUM = POS1.isInteger() ? POS1.toInteger() : POS1.toDouble()
+    def POS2NUM = POS2.isInteger() ? POS2.toInteger() : POS2.toDouble()
+    def position = POS2 == null ? [POS1NUM] : [POS1NUM, POS2NUM]
+
 
     key = BLOCK.replaceFirst("^(C|c)(H|h)(R|r)[_]?","")
       //Skip non-chromosome blocks
-      if(key.toLowerCase() =~ /^(chr|[0-9]|x|y|i|v))/ ) {
+      if(key.toLowerCase() =~ /^(chr|[0-9]|x|y|i|v)/ || (BLOCK =~ allowedTargetIdPattern) )  {
         if(!scope.containsKey(key)) {
           scope << [(key) : []]
         }
-        scope[key] << ["name" : MARKER, "value" : [position]]
+        scope[key] << ["name" : MARKER, "value" : position]
       }
 
   }
@@ -95,4 +101,6 @@ try {
 } catch (IOException ex) {
   ex.printStackTrace();
 }
+
+
 
