@@ -57,10 +57,10 @@ for line in args.infile:
   #Add feature to block
   scope[chr].append(OrderedDict([
     ("name", attributes["Name"]),
-    ("value", [ toks[3], toks[4] ]),
+    ("value", [ int(toks[3]), int(toks[4]) ]),
     ("evidence", OrderedDict([
-      ("identity", attributes["identity"]),
-      ("coverage", attributes["coverage"])
+      ("identity", float(attributes["identity"])),
+      ("coverage", float(attributes["coverage"]))
     ]))
   ]))
 
