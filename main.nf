@@ -181,6 +181,7 @@ process generateFeaturesFromSeqAlignmentsJSON {
     --parent ${genome} \
     --sequence-type ${meta.seqs.seqtype} \
     --base-name ${tag} \
+    --namespace ${meta.seqs.name} \
     --short-name ${meta.seqs.name} \
     --align-tool ${meta.align.tool} \
     --align-params "${meta.align.params}" \

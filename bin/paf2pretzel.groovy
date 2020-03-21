@@ -36,8 +36,11 @@ import static picocli.CommandLine.*
 @Option(names = ["--parent"], description = ["Parent dataset name"])
 @Field private String parent
 
-@Option(names = ["--base-name"], description = ["Basename used for dataset name/namespace"])
+@Option(names = ["--base-name"], description = ["Basename used for dataset name"])
 @Field private String basename
+
+@Option(names = ["--namespace"], description = ["String used for dataset namespace"])
+@Field private String namespace
 
 @Option(names = ["--short-name"], description = ["Short display name"])
 @Field private String shortName
@@ -83,7 +86,7 @@ annotation.meta = [:]
 
 annotation.'public' = !makePrivate
 annotation.name = "${basename}_${seqType}"
-annotation.namespace = basename
+annotation.namespace = namespace
 annotation.parent = parent
 annotation.meta.shortName = shortName
 if(alignTool != null && alignParams != null) {
