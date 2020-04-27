@@ -476,7 +476,7 @@ process generateFeaturesJSON {
     }
     //OUTPUT JSON, COMPRESS
     out.text = prettyPrint(toJson(annotation))
-    'gzip ${tag}_annotation.json'.execute()
+    'gzip ${tag}_annotation.json'.execute().waitFor()
     """
 }
 
