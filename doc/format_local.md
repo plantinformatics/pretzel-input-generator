@@ -162,8 +162,33 @@ Now skip genes which are placed on scaffolds not chromosomes
 paste - - < TRIDC_WEWseq_PGSB_20160501_Proteins_HighConf_REPR_on_WEW2.0.fasta | grep -v -e scaffold -e ':\*' | tr '\t' '\n' > TRIDC_WEWseq_PGSB_20160501_Proteins_HighConf_REPR_on_WEW2.0_chromosomes.fasta
 ```
 
+## Thinopyrum elongatum
 
-# Oryza sativa
+```sh
+wget https://ftp.ncbi.nlm.nih.gov/genomes/all/GCA/011/799/875/GCA_011799875.1_ASM1179987v1/GCA_011799875.1_ASM11
+79987v1_genomic.fna.gz
+time pigz -dcp2 GCA_011799875.1_ASM1179987v1_genomic.fna.gz \
+| fasta_formatter \
+| sed -re 's/^>.*(scaffold[0-9]+.*|[1-7]E),.*/>\1/' \
+> Thinopyrum_elongatum_D-3458_chromosomes.fa
+```
+
+Try again - annotated data
+
+```sh
+time wget ftp://download.big.ac.cn/gwh/Plants/Thinopyrum_elongatum_Thinopyrum_elongatum-REFERENCE-SDAU-1.0.fa_GWHABKY00000000/GWHABKY00000000.genome.fasta.gz ftp://download.big.ac.cn/gwh/Plants/Thinopyrum_elongatum_Thinopyrum_elongatum-REFERENCE-SDAU-1.0.fa_GWHABKY00000000/GWHABKY00000000.gff.gz ftp://download.big.ac.cn/gwh/Plants/Thinopyrum_elongatum_Thinopyrum_elongatum-REFERENCE-SDAU-1.0.fa_GWHABKY00000000/GWHABKY00000000.feature.gz ftp://download.big.ac.cn/gwh/Plants/Thinopyrum_elongatum_Thinopyrum_elongatum-REFERENCE-SDAU-1.0.fa_GWHABKY00000000/GWHABKY00000000.RNA.fasta.gz ftp://download.big.ac.cn/gwh/Plants/Thinopyrum_elongatum_Thinopyrum_elongatum-REFERENCE-SDAU-1.0.fa_GWHABKY00000000/GWHABKY00000000.CDS.fasta.gz ftp://download.big.ac.cn/gwh/Plants/Thinopyrum_elongatum_Thinopyrum_elongatum-REFERENCE-SDAU-1.0.fa_GWHABKY00000000/GWHABKY00000000.Protein.faa.gz
+
+#Update IDs
+sed -Ei 's/GWHABKY0000000([1-7])/\1E/' GWHABKY00000000.Protein.faa
+sed -Ei 's/>GWHABKY0000000([1-7])/>\1E/' GWHABKY00000000.genome.fasta
+sed -Ei 's/GWHABKY0000000([1-7])/\1E/' GWHABKY00000000.gff #may not need it
+
+#Re-format peps to Ensembl-like
+bin/bigdPep_2_ensemblPep.awk GWHABKY00000000.Protein.faa > GWHABKY00000000.Protein.ensembl.faa
+```
+
+
+## Oryza sativa
 
 Until EP datasets use is put in sync with local, this could be a way to ensure IRGSP annotations are processed correctly
 
@@ -171,7 +196,9 @@ Until EP datasets use is put in sync with local, this could be a way to ensure I
 fasta_formatter < Oryza_sativa.IRGSP-1.0.pep.all.fa | paste - - | filterForRepresentative.awk > Oryza_sativa.IRGSP-1.0.pep.REPR.fa
 ```
 
-# Triticum aestivum IWGSC v2
+
+
+## Triticum aestivum IWGSC v2
 
 Lacking annotations, transplant from v1. Get genic sequences from v1:
 
@@ -179,9 +206,9 @@ Lacking annotations, transplant from v1. Get genic sequences from v1:
 < iwgsc_refseqv1.0_HighConf_2017Mar13.gff3 | awk -vFS="\t" -vOFS="\t" '$3=="gene"{split($9,a,";");split(a[1],b,"=");print $1":"$4"-"$5; print b[2] > "transplant/HC.ids"}'  | xargs samtools faidx --length 10000000 161010_Chinese_Spring_v1.0_pseudomolecules.fasta  > transplant/retrieved_HC.fa
 ```
 
-# Legacy datasets
+## Legacy datasets
 
-## Triticum aestivum IWGSC CSS v2
+### Triticum aestivum IWGSC CSS v2
 
 Source files from https://urgi.versailles.inra.fr/download/iwgsc/Survey_sequence/
 
@@ -198,10 +225,10 @@ paste models.info genic.tmp | awk '{gsub(/>/,"",$3); if($2==$3)print ">"$1"\n"$4
 
 
 
-## Triticum aestivum IWGSC CSS v3
+### Triticum aestivum IWGSC CSS v3
 
 
-## Ad-hoc processing of pre-computed gffs 
+## Ad-hoc processing of pre-computed gffs
 
 ```
 bin/gff_2_pretzel.py \
