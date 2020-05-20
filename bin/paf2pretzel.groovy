@@ -66,6 +66,9 @@ import static picocli.CommandLine.*
 @Option(names = ["-C", "--out-counts"], description = ["Per-block feature counts report"])
 @Field private String outputCounts = '/dev/stderr'
 
+@Option(names = ["-t", "--out-tsv"], description = ["Tab-delimited output"])
+@Field private String outputTsv
+
 @Option(names= ["-h", "--help"], usageHelp=true, description="Show this help message and exit.")
 @Field private boolean helpRequested
 
@@ -122,7 +125,7 @@ pafContent.eachLine { line ->
       def kosher = true;
       // println "check if TNAME kosher"
       // if(!(TNAME.toLowerCase() ==~ /^(ch(romosome)?)?(_)?([0-9]+|x|y|i|v).*/)) {
-      // if(!(TNAME.toLowerCase() ==~ /^(ch(romosome)?)?(_)?([0-9]+|x|y|i|v|[0-9a-z_\-]).*/)) {        
+      // if(!(TNAME.toLowerCase() ==~ /^(ch(romosome)?)?(_)?([0-9]+|x|y|i|v|[0-9a-z_\-]).*/)) {
       if(!((TNAME.toLowerCase() =~ /^(ch|[0-9]{1,2}|x|y|i|v)/) || (TNAME =~ allowedTargetIdPattern) )) {
         kosher = false //don't report placement on plasmid or other non-pseudomolecule parts of assembly
         // println "${allowedTargetIdPattern} not matching $TNAME"
@@ -184,9 +187,9 @@ if(output.endsWith('.gz')) {
   int BUFFER_SIZE = 8192
   Writer writer = new BufferedWriter(new OutputStreamWriter(new GZIPOutputStream(new FileOutputStream(out, append)), "UTF-8"), BUFFER_SIZE);
   try {
-  writer.write(prettyPrint(toJson(annotation)))
+    writer.write(prettyPrint(toJson(annotation)))
     } catch (FileNotFoundException ex) {
-    ex.printStackTrace();
+      ex.printStackTrace();
     } catch (InterruptedException ex) {
       ex.printStackTrace();
     } catch (IOException ex) {
@@ -200,4 +203,16 @@ if(output.endsWith('.gz')) {
     }
 } else {
   out.text = prettyPrint(toJson(annotation))
+}
+
+if(outputTsv != null) {
+  def outTsv = new File(outputTsv)
+  outTsv.withWriterAppend{ wr ->
+    wr.println "Name\tBlock\tstart\tend\tidentity\tcoverage"
+    annotation.blocks.each { block ->
+      block.features.each { feature ->
+        wr.println feature.name+"\t"+block.scope+"\t"+feature.value[0]+"\t"+feature.value[1]+"\t"+feature.evidence.identity+"\t"+feature.evidence.coverage
+      }
+    }
+  }
 }

@@ -8,7 +8,7 @@ if(workflow.profile.contains('BUSCOs')) {
 
 // import static groovy.json.JsonOutput.*
 //For pretty-printing nested maps etc
-import groovy.json.JsonGenerator 
+import groovy.json.JsonGenerator
 import groovy.json.JsonSlurper
 import groovy.json.JsonOutput
 
@@ -16,8 +16,8 @@ import groovy.json.JsonOutput
 JsonGenerator jsonGenerator = new JsonGenerator.Options()
                 .addConverter(java.nio.file.Path) { java.nio.file.Path p, String key -> p.toUriString() }
                 .addConverter(Duration) { Duration d, String key -> d.durationInMillis }
-                .addConverter(java.time.OffsetDateTime) { java.time.OffsetDateTime dt, String key -> dt.toString() }                
-                .addConverter(nextflow.NextflowMeta) { nextflow.NextflowMeta m, String key -> m.toJsonMap() }  //incompatible with Nextflow <= 19.04.0 
+                .addConverter(java.time.OffsetDateTime) { java.time.OffsetDateTime dt, String key -> dt.toString() }
+                .addConverter(nextflow.NextflowMeta) { nextflow.NextflowMeta m, String key -> m.toJsonMap() }  //incompatible with Nextflow <= 19.04.0
                 .excludeFieldsByType(java.lang.Class) // .excludeFieldsByName('class')
                 // .excludeNulls()
                 .build()
@@ -157,14 +157,16 @@ process generateFeaturesFromSeqAlignmentsJSON {
   tag { tag }
   label 'groovy'
   label 'json'
-  label 'mem'  
-  validExitStatus 0,3  //expecting exit status 3 if no features placed which is valid e.g. when no good-enough alignments found 
+  label 'tsv'
+  label 'mem'
+  validExitStatus 0,3  //expecting exit status 3 if no features placed which is valid e.g. when no good-enough alignments found
 
   input:
     set val(meta), file(paf) from alignedSeqsChannel
 
   output:
     file "*.json.gz" optional true into placedSeqsJSON
+    file "*.tsv" optional true into placedSeqsTSV
     file "*.counts" into placedSeqsCounts
 
   script:
@@ -187,6 +189,7 @@ process generateFeaturesFromSeqAlignmentsJSON {
     --align-params "${meta.align.params}" \
     --allowed-target-id-pattern '${meta.ref.allowedIdPattern}' \
     --output ${tag}_${meta.seqs.seqtype}.json.gz \
+    --out-tsv ${tag}_${meta.seqs.seqtype}.tsv \
     --out-counts ${tag}_${meta.seqs.seqtype}.counts
   """
 }
@@ -200,13 +203,13 @@ refsChannel1
   }
   .set { refs4genomeBlocks1 }
 
-process faidxAssembly {  
+process faidxAssembly {
   tag{tag}
   label 'samtools'
 
   input:
     tuple val(meta), file(fasta) from refs4genomeBlocks1.faidx
-  
+
   output:
     tuple val(meta), file("${fasta}.fai") into refs4genomeBlocks2
 
@@ -275,8 +278,8 @@ process generateGenomeBlocksJSON {
 refsChannel3
   // .view {
   //   """
-  //   ${it} 
-  //   ${it.containsKey('gff3')} 
+  //   ${it}
+  //   ${it.containsKey('gff3')}
   //   ${it.containsKey('gtf')}
   //   ${(it.containsKey('gff3') || it.containsKey('gtf'))}
   //   ${!(it.containsKey('gff3') || it.containsKey('gtf'))}
@@ -287,12 +290,12 @@ refsChannel3
     if(meta.pep instanceof Map) {
       def repeated = []
       meta.pep.each { k,v ->
-        def item = meta.subMap(meta.keySet().minus(['pep','gff3','gtf'])) + [pep: v, annotation: k] 
+        def item = meta.subMap(meta.keySet().minus(['pep','gff3','gtf'])) + [pep: v, annotation: k]
         if(meta.containsKey('gff3') && meta.gff3.containsKey(k)) {
           item.gff3 = meta.gff3."${k}"
         } else if(meta.containsKey('gtf') && meta.gtf.containsKey(k)) {
           item.gtf = meta.gtf."${k}"
-        } 
+        }
         repeated << item
       }
       repeated
@@ -301,7 +304,7 @@ refsChannel3
     }
   }
   .flatten()
-  .branch { meta -> //redirect data sets; ones with pep but without gff/gtf are assumed to be in ENSEMBL format 
+  .branch { meta -> //redirect data sets; ones with pep but without gff/gtf are assumed to be in ENSEMBL format
      pep4Conversion: (meta.containsKey('gff3') || meta.containsKey('gtf'))
      pepEnsembl: !(meta.containsKey('gff3') && !meta.containsKey('gtf'))
        [meta, file(meta.pep)]
@@ -331,7 +334,7 @@ process filterForRepresentativePeps {
     cmd = "${pep}".endsWith(".gz") ? "zcat" : "cat"
     """
     ${cmd} ${pep} | fasta_formatter | paste - - | filterForRepresentative.awk | gzip -c > ${tag}_repr.pep.gz
-    [ ! -z \$(zcat ${tag}_repr.pep.gz | head -c1) ] || (echo 'Error! Empty output file! ${tag}_repr.pep.gz'; exit 1) 
+    [ ! -z \$(zcat ${tag}_repr.pep.gz | head -c1) ] || (echo 'Error! Empty output file! ${tag}_repr.pep.gz'; exit 1)
     """
 }
 
@@ -357,8 +360,8 @@ process convertReprFasta2EnsemblPep { //TODO - NOT WORKING IF ENSEMB-FORMATTED I
   script:
     tag=getAnnotationTagFromMeta(meta)
     //TRIAL RUN? ONLY TAKE FIRST n LINES
-    
-    
+
+
     cmd0 = "${reprPep}".endsWith(".gz") ? "zcat" : "cat"
     cmd1 = "${gtfgff3}".endsWith(".gz") ? "zcat" : "cat"
     // if(meta.containsKey("gtfgff3") && (gtfgff3.name).matches(".*gtf\$")) {
@@ -601,6 +604,7 @@ process pack {
     file('*') from featuresJSON.collect()
     file('*') from aliasesJSON.collect()
     file('*') from placedSeqsJSON.collect()
+    file('*') from placedSeqsTSV.collect()
     file('*') from outstats
 
   output:
