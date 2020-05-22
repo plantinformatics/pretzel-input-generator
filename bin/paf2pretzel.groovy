@@ -92,6 +92,7 @@ annotation.name = "${basename}_${seqType}"
 annotation.namespace = namespace
 annotation.parent = parent
 annotation.meta.shortName = shortName
+annotation.meta.type = seqType.capitalize()
 if(alignTool != null && alignParams != null) {
   annotation.meta.evidence = [
     type: "alignment",
