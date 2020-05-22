@@ -100,6 +100,7 @@ if(alignTool != null && alignParams != null) {
   ]
 }
 
+String csTag = null
 TreeMap scope = [:] //keep keys sorted as the corresponding blocks get displayed in order in pretzel
 pafContent.eachLine { line ->
     def arr = line.split('\t')
@@ -121,6 +122,13 @@ pafContent.eachLine { line ->
     // int mapq = MAPQ.toInteger()
 
     // println "${query_identity} >= ${minIdentity} ?"
+    csTag = null;
+    TAGS.each { tag ->
+      if(tag.startsWith('cs:Z')) {
+        csTag = tag.substring(5)
+      }
+    }
+
     if(query_identity >= minIdentity) {
       def kosher = true;
       // println "check if TNAME kosher"
@@ -149,23 +157,26 @@ pafContent.eachLine { line ->
         if(!scope.containsKey(key)) {
           scope << [(key) : []]
         }
-        scope[key] << [
+        def feature = [
           "name" : QNAME,
           "value" : [ tstart+1, tend ],
           "evidence": [
             "identity" : query_identity,
-            "coverage" : query_coverage
+            "coverage" : query_coverage,
+            "strand": STRAND,
           ]
         ]
+        if(csTag != null) {
+          feature.evidence <<  ["cs" : csTag]
+        }
+        scope[key] << feature
       }
     }
-    // scope[key] << ["name" : QNAME, "value" : [ alnStart, alnEnd ]]
 }
 //GROUP TOGETHER FEATURES FROM/IN SAME BLOCK
 annotation.blocks = []
 scope.each { k, features ->
   current = [ "scope": k, "featureType": "linear", "features": []]
-  // // current = [ "scope": k, "featureType": "linear", "range": [1, lengths[k]], "features": []]
   current.features = features
   annotation.blocks << current
 }
@@ -208,10 +219,13 @@ if(output.endsWith('.gz')) {
 if(outputTsv != null) {
   def outTsv = new File(outputTsv)
   outTsv.withWriterAppend{ wr ->
-    wr.println "Name\tBlock\tstart\tend\tidentity\tcoverage"
+    wr.print "Name\tBlock\tstart\tend\tidentity\tcoverage\tstrand"
+    wr.println csTag == null ? "" : "\tcs"
+    // wr.println "Name\tBlock\tstart\tend\tidentity\tcoverage\tstrand\tcs"
     annotation.blocks.each { block ->
       block.features.each { feature ->
-        wr.println feature.name+"\t"+block.scope+"\t"+feature.value[0]+"\t"+feature.value[1]+"\t"+feature.evidence.identity+"\t"+feature.evidence.coverage
+        cs = (feature.evidence.containsKey("cs") ? "\t"+feature.evidence.cs : "")
+        wr.println feature.name+"\t"+block.scope+"\t"+feature.value[0]+"\t"+feature.value[1]+"\t"+feature.evidence.identity+"\t"+feature.evidence.coverage+"\t"+feature.evidence.strand+cs
       }
     }
   }
