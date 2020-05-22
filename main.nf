@@ -611,8 +611,8 @@ process pack {
     file('*') into targzJSON
 
   """
-  tar chzvf JSON-\$(date --iso-8601).tar.gz *.json *.json.gz *.counts
-  tar chzvf  JSON-\$(date --iso-8601)-no_LC.tar.gz *.json *.json.gz *.counts --exclude '*LC*'
+  tar chzvf JSON-\$(date --iso-8601).tar.gz *.json *.json.gz *.counts *.tsv
+  tar chzvf  JSON-\$(date --iso-8601)-no_LC.tar.gz *.json *.json.gz *.counts *.tsv --exclude '*LC*'
   """
 }
 
