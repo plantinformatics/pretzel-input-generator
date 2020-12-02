@@ -25,6 +25,7 @@ jobs:
     steps:
       - name: Check out code
       - uses: actions/checkout@v2
+      - name: Setup SIngularity
       - uses: eWaterCycle/setup-singularity@v5
         with:
           singularity-version: 3.6.4
