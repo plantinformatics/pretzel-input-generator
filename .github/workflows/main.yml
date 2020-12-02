@@ -29,6 +29,8 @@ jobs:
         uses: eWaterCycle/setup-singularity@v5
         with:
           singularity-version: 3.6.4
+      - name: Run a singularity container
+        run: singularity run docker://alpine cat /etc/os-release
       - name: Install Nextflow
         run: |
           wget -qO- get.nextflow.io | bash
