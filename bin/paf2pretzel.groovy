@@ -6,7 +6,7 @@ import java.util.zip.GZIPOutputStream
 
 
 //@Grab('info.picocli:picocli-groovy:4.1.2') //command line interface
-groovy.grape.Grape.grab(group:'info.picocli', module:'picocli-groovy', version:'4.1.2')
+groovy.grape.Grape.grab(group:'info.picocli', module:'picocli-groovy', version:'4.5.0')
 
 @Command(header = [
        //Font Name: Calvin S
