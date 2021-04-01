@@ -159,7 +159,7 @@ process generateFeaturesFromSeqAlignmentsJSON {
   label 'json'
   label 'tsv'
   label 'mem'
-  validExitStatus 0,3  //expecting exit status 3 if no features placed which is valid e.g. when no good-enough alignments found
+  errorStrategy { task.exitStatus = 3 ? 'ignore' : 'terminate' }  //expecting exit status 3 if no features placed which is valid e.g. when no good-enough alignments found
 
   input:
     set val(meta), file(paf) from alignedSeqsChannel
@@ -527,7 +527,7 @@ process generateAliasesJSON {
   tag{basename}
   label 'json'
   label 'jq'
-  validExitStatus 0,3  //expecting exit status 3 if no aliases generated which is valid e.g. when dataset consisting of a single chr/block aligned to itself
+  errorStrategy { task.exitStatus = 3 ? 'ignore' : 'terminate' }  //expecting exit status 3 if no aliases generated which is valid e.g. when dataset consisting of a single chr/block aligned to itself
   // errorStrategy 'finish'
   // echo 'true'
 
@@ -577,6 +577,10 @@ process stats {
   label 'jq'
 
   input:
+    // file('*') from genomeBlocksStats.collect()
+    //                  .mix(featuresCounts.collect())
+    //                  .mix(aliasesCounts.collect())
+    //                  .mix(placedSeqsCounts.collect())
     file('*') from genomeBlocksStats.collect()
     file('*') from featuresCounts.collect()
     file('*') from aliasesCounts.collect()
@@ -591,6 +595,7 @@ process stats {
   cat *_annotation.counts | sort -V > feature.counts
   cat *_{markers,transcripts,cds,genomic}.counts | sort -V > placed.counts
   grep "" *_aliases.len > aliases.counts
+  echo "one or more of the above can fail - only relevant if not expected to..."
   """
   //jq '.blocks[]' ${f} | jq 'input_filename, .scope, (.features | length)' | paste - - | sort -V
 }
