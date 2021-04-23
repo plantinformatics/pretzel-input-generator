@@ -158,6 +158,7 @@ process generateFeaturesFromSeqAlignmentsJSON {
   label 'groovy'
   label 'json'
   label 'tsv'
+  label 'gff'
   label 'mem'
   errorStrategy { task.exitStatus = 3 ? 'ignore' : 'terminate' }  //expecting exit status 3 if no features placed which is valid e.g. when no good-enough alignments found
 
@@ -165,8 +166,7 @@ process generateFeaturesFromSeqAlignmentsJSON {
     set val(meta), file(paf) from alignedSeqsChannel
 
   output:
-    file "*.json.gz" optional true into placedSeqsJSON
-    file "*.tsv" optional true into placedSeqsTSV
+    file "*.{json.gz,tsv,gff}" optional true into placedSeqs
     file "*.counts" into placedSeqsCounts
 
   script:
@@ -178,18 +178,19 @@ process generateFeaturesFromSeqAlignmentsJSON {
 
   // template 'paf2pretzel.groovy'
   """
-  paf2pretzel.groovy \
-    --paf ${paf} \
-    --parent ${genome} \
-    --sequence-type ${meta.seqs.seqtype} \
-    --base-name ${tag} \
-    --namespace ${meta.seqs.name} \
-    --short-name ${meta.seqs.name} \
-    --align-tool ${meta.align.tool} \
-    --align-params "${meta.align.params}" \
-    --allowed-target-id-pattern '${meta.ref.allowedIdPattern}' \
-    --output ${tag}_${meta.seqs.seqtype}.json.gz \
-    --out-tsv ${tag}_${meta.seqs.seqtype}.tsv \
+  paf2pretzel.groovy \\
+    --paf ${paf} \\
+    --parent ${genome} \\
+    --sequence-type ${meta.seqs.seqtype} \\
+    --base-name ${tag} \\
+    --namespace ${meta.seqs.name} \\
+    --short-name ${meta.seqs.name} \\
+    --align-tool ${meta.align.tool} \\
+    --align-params "${meta.align.params}" \\
+    --allowed-target-id-pattern '${meta.ref.allowedIdPattern}' \\
+    --output ${tag}_${meta.seqs.seqtype}.json.gz \\
+    --out-tsv ${tag}_${meta.seqs.seqtype}.tsv \\
+    --out-gff ${tag}_${meta.seqs.seqtype}.gff \\
     --out-counts ${tag}_${meta.seqs.seqtype}.counts
   """
 }
@@ -608,15 +609,14 @@ process pack {
     file('*') from genomeBlocksJSON.collect()
     file('*') from featuresJSON.collect()
     file('*') from aliasesJSON.collect()
-    file('*') from placedSeqsJSON.collect()
-    file('*') from placedSeqsTSV.collect()
+    file('*') from placedSeqs.collect()
     file('*') from outstats
 
   output:
     file('*') into targzJSON
 
   """
-  tar chzvf JSON-\$(date --iso-8601).tar.gz *.json *.json.gz *.counts *.tsv
+  tar chzvf JSON-\$(date --iso-8601).tar.gz *.json *.json.gz *.counts *.tsv *.gff
   tar chzvf  JSON-\$(date --iso-8601)-no_LC.tar.gz *.json *.json.gz *.counts *.tsv --exclude '*LC*'
   """
 }

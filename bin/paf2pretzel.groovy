@@ -69,6 +69,9 @@ import static picocli.CommandLine.*
 @Option(names = ["-t", "--out-tsv"], description = ["Tab-delimited output"])
 @Field private String outputTsv
 
+@Option(names = ["-g", "--out-gff"], description = ["GFF output"])
+@Field private String outputGff
+
 @Option(names= ["-h", "--help"], usageHelp=true, description="Show this help message and exit.")
 @Field private boolean helpRequested
 
@@ -227,6 +230,21 @@ if(outputTsv != null) {
       block.features.each { feature ->
         cs = (feature.evidence.containsKey("cs") ? "\t"+feature.evidence.cs : "")
         wr.println feature.name+"\t"+block.scope+"\t"+feature.value[0]+"\t"+feature.value[1]+"\t"+feature.evidence.identity+"\t"+feature.evidence.coverage+"\t"+feature.evidence.strand+cs
+      }
+    }
+  }
+}
+
+if(outputGff != null) {
+  def outGff = new File(outputGff)
+  outGff.withWriterAppend{ wr ->
+    annotation.blocks.each { block ->
+      block.features.each { feature ->
+        gffEntry = [
+          block.scope, basename, seqType, feature.value[0], feature.value[1],  ".", feature.evidence.strand, ".",
+          "ID=${feature.name};Identity=${feature.evidence.identity};Coverage=${feature.evidence.coverage};"
+        ].join('\t')
+        wr.println gffEntry
       }
     }
   }
