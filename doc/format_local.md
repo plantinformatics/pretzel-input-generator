@@ -272,3 +272,23 @@ time fgrep -wf <(cut -f8 35k_probe_set_IWGSCv1.tsv | tail -n+2) axiom_820k.summa
   --source 'https://urgi.versailles.inra.fr/download/iwgsc/IWGSC_RefSeq_Annotations/v1.0/' \
   --citation https://doi.org/10.1126/science.aar7191 | pigz -9cp2 > ${NAME}_markers.json.gz
 ```
+
+
+## Sugracane & sorghum
+
+
+```sh
+mv local/R570_V1/Saccharum_officinarum_X_spontaneum_var_R570.mainGenome.fasta local/R570_V1/Saccharum_officinarum_X_spontaneum_var_R570.mainGenome.fasta.BAK
+time sed -e 's/SB_//g' -e 's/chrom/chr/g' -e 's/recombinant/rec/g' -e 's/alternative/alt/g' -e 's/primary/prim/g' local/R570_V1/Saccharum_officinarum_X_spontaneum_var_R570.mainGenome.fasta.BAK | tr '|:' '__' > local/R570_V1/Saccharum_officinarum_X_spontaneum_var_R570.mainGenome.fasta
+```
+
+
+```sh
+~/.nextflow/assets/plantinformatics/pretzel-input-generator/bin/gff_2_pretzel.py \
+  --infile local/markers/SNPs_vs_sorghum_v2.1_fmtsix.gff \
+  --name Sorghum_bicolor_NCBIv3_AX \
+  --namespace AX \
+  --short-name AX \
+  --parent Sorghum_bicolor_NCBIv3 \
+  | pigz -11cp2 > results/JSON/Sorghum_bicolor_NCBIv3_AX.json.gz
+```
