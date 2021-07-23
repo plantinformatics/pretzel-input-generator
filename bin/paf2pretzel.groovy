@@ -27,8 +27,11 @@ import static picocli.CommandLine.*
 //should be optional (then generate with blocks, otherwise link to existing dataset)
 // @Option(names = ["-f", "--faidx"], description = ["FAI index for the reference FASTA file"], required = true)
 // @Field private String fai
-@Option(names = ["--min-identity"], description = ["Minimum sequence identity for sequence placement to be repoted"])
+@Option(names = ["--min-identity"], description = ["Minimum query sequence identity for sequence placement to be repoted"])
 @Field private double minIdentity = 0.9
+
+// @Option(names = ["--min-coverage"], description = ["Minimum query sequence coverage for sequence placement to be repoted"])
+// @Field private double minCoverage = 0.7
 
 @Option(names = ["--make-private"], description = ["Make output dataset private (is public by default)"])
 @Field private boolean makePrivate = false
@@ -126,6 +129,7 @@ pafContent.eachLine { line ->
     // int mapq = MAPQ.toInteger()
 
     // println "${query_identity} >= ${minIdentity} ?"
+    // println "${query_identity}\t${query_coverage}\t${query_identity*query_coverage}"
     csTag = null;
     TAGS.each { tag ->
       if(tag.startsWith('cs:Z')) {
@@ -133,30 +137,24 @@ pafContent.eachLine { line ->
       }
     }
 
+    // if(query_identity >= minIdentity && query_coverage >= minCoverage) {
     if(query_identity >= minIdentity) {
       def kosher = true;
-      // println "check if TNAME kosher"
-      // if(!(TNAME.toLowerCase() ==~ /^(ch(romosome)?)?(_)?([0-9]+|x|y|i|v).*/)) {
-      // if(!(TNAME.toLowerCase() ==~ /^(ch(romosome)?)?(_)?([0-9]+|x|y|i|v|[0-9a-z_\-]).*/)) {
+      //check if TNAME kosher
       if(!((TNAME.toLowerCase() =~ /^(ch|[0-9]{1,2}|x|y|i|v)/) || (TNAME =~ allowedTargetIdPattern) )) {
         kosher = false //don't report placement on plasmid or other non-pseudomolecule parts of assembly
         // println "${allowedTargetIdPattern} not matching $TNAME"
       } else if(markerMode && query_identity < 1) { //Not a 100% match, so for markers we check if no MM in last 3 bases - if notMarkerMode the required tag may not be present
-        TAGS.each { tag ->
-          if(tag.startsWith('cs:Z')) {
-            if(STRAND == '-' && (tag =~ /^cs:Z:=[acgtnACGTN]{3,}/).count == 0){
-              // println "minus 3'\t"+line
-              kosher = false;
-            } else if(STRAND == '+' && (tag.substring(tag.lastIndexOf('=')+1).matches('^[acgtnACGTN]{3,}\$')) == false) {
-              // println "plus 3'\t"+line
-              kosher = false;
-            }
+          if(STRAND == '-' && (csTag =~ /^=[acgtnACGTN]{3,}/).count == 0){
+            // println "minus 3'\t"+line
+            kosher = false;
+          } else if(STRAND == '+' && (csTag.substring(csTag.lastIndexOf('=')+1).matches('^[acgtnACGTN]{3,}\$')) == false) {
+            // println "plus 3'\t"+line
+            kosher = false;
           }
-        }
       }
 
       if(kosher) {
-        // println TNAME
         def key = TNAME.replaceFirst("^(C|c)(H|h)(R|r)[_]?","")
         if(!scope.containsKey(key)) {
           scope << [(key) : []]
@@ -177,6 +175,7 @@ pafContent.eachLine { line ->
       }
     }
 }
+
 //GROUP TOGETHER FEATURES FROM/IN SAME BLOCK
 annotation.blocks = []
 scope.each { k, features ->
