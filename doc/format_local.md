@@ -278,10 +278,21 @@ time fgrep -wf <(cut -f8 35k_probe_set_IWGSCv1.tsv | tail -n+2) axiom_820k.summa
 
 
 ```sh
-mv local/R570_V1/Saccharum_officinarum_X_spontaneum_var_R570.mainGenome.fasta local/R570_V1/Saccharum_officinarum_X_spontaneum_var_R570.mainGenome.fasta.BAK
-time sed -e 's/SB_//g' -e 's/chrom/chr/g' -e 's/recombinant/rec/g' -e 's/alternative/alt/g' -e 's/primary/prim/g' local/R570_V1/Saccharum_officinarum_X_spontaneum_var_R570.mainGenome.fasta.BAK | tr '|:' '__' > local/R570_V1/Saccharum_officinarum_X_spontaneum_var_R570.mainGenome.fasta
+mv \
+  local/R570_V1/Saccharum_officinarum_X_spontaneum_var_R570.mainGenome.fasta \
+  local/R570_V1/Saccharum_officinarum_X_spontaneum_var_R570.mainGenome.fasta.BAK
+sed \
+  -e 's/SB_//g' \
+  -e 's/chrom/chr/g' \
+  -e 's/recombinant/rec/g' \
+  -e 's/alternative/alt/g' \
+  -e 's/primary/prim/g' \
+  local/R570_V1/Saccharum_officinarum_X_spontaneum_var_R570.mainGenome.fasta.BAK \
+  | tr '|:' '__' \
+  > local/R570_V1/Saccharum_officinarum_X_spontaneum_var_R570.mainGenome.fasta
 ```
 
+Not used:
 
 ```sh
 ~/.nextflow/assets/plantinformatics/pretzel-input-generator/bin/gff_2_pretzel.py \
