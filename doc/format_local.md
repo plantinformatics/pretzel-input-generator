@@ -292,6 +292,13 @@ sed \
   > local/R570_V1/Saccharum_officinarum_X_spontaneum_var_R570.mainGenome.fasta
 ```
 
+```sh
+awk 'NR>1{gsub("/[ACGT]","",$2);print ">"$1"\n"$2}' \
+  local/markers/Axiom48k_probes.txt \
+  | tr -d '[]' \
+  > local/markers/Axiom_48k_probes.fa
+```
+
 Not used:
 
 ```sh
