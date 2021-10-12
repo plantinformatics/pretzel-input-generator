@@ -187,6 +187,8 @@ process generateFeaturesFromSeqAlignmentsJSON {
     --short-name ${meta.seqs.name} \\
     --align-tool ${meta.align.tool} \\
     --align-params "${meta.align.params}" \\
+    --min-identity ${params.minMarkerIdentity} \\
+    --min-coverage ${params.minMarkerCoverage} \\
     --allowed-target-id-pattern '${meta.ref.allowedIdPattern}' \\
     --output ${tag}_${meta.seqs.seqtype}.json.gz \\
     --out-tsv ${tag}_${meta.seqs.seqtype}.tsv \\

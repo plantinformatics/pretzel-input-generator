@@ -30,8 +30,8 @@ import static picocli.CommandLine.*
 @Option(names = ["--min-identity"], description = ["Minimum query sequence identity for sequence placement to be repoted"])
 @Field private double minIdentity = 0.9
 
-// @Option(names = ["--min-coverage"], description = ["Minimum query sequence coverage for sequence placement to be repoted"])
-// @Field private double minCoverage = 0.7
+@Option(names = ["--min-coverage"], description = ["Minimum query sequence coverage for sequence placement to be repoted"])
+@Field private double minCoverage = 0.7
 
 @Option(names = ["--make-private"], description = ["Make output dataset private (is public by default)"])
 @Field private boolean makePrivate = false
@@ -137,8 +137,8 @@ pafContent.eachLine { line ->
       }
     }
 
-    // if(query_identity >= minIdentity && query_coverage >= minCoverage) {
-    if(query_identity >= minIdentity) {
+    if(query_identity >= minIdentity && query_coverage >= minCoverage) {
+    // if(query_identity >= minIdentity) {
       def kosher = true;
       //check if TNAME kosher
       if(!((TNAME.toLowerCase() =~ /^(ch|[0-9]{1,2}|x|y|i|v)/) || (TNAME =~ allowedTargetIdPattern) )) {
