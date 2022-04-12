@@ -15,6 +15,23 @@ NR==FNR {
 }
 
 NR!=FNR {
+  if($3 =="mRNA") {
+    gsub("\"","");
+    split($9,arr,";| ");
+    for(i in arr) {
+      split(arr[i], pair, "=");
+      if(pair[1]=="ID") {
+        mrnaID=pair[2];
+      } else if(pair[1]=="Name") {
+        mrnaName=pair[2];
+      } else if(pair[1]=="Longest") {
+        longest=pair[2]
+      }
+    }
+    if(longest==1) {
+      mRNAs[mrnaID]=mrnaName;
+    }
+  }
   if($3 =="CDS") {
     gsub("\"","");
     split($9,arr,";| ");
@@ -41,6 +58,8 @@ NR!=FNR {
         id = source
       } else if(parent in repr) { #dealing with GFF files being inconsistent...
         id = parent
+      } else if(mRNAs[parent] in repr) { #dealing with GFF files being inconsistent...
+        id = mRNAs[parent]
       } else {
         id = ""
       }
