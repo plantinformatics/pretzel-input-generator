@@ -55,13 +55,14 @@ NR!=FNR {
       #IGNORECASE=0;
       
       if(source in repr) {
-        id = source
+        id = source;
       } else if(parent in repr) { #dealing with GFF files being inconsistent...
-        id = parent
-      } else if(mRNAs[parent] in repr) { #dealing with GFF files being inconsistent...
-        id = mRNAs[parent]
+        id = parent;
+      } else if(mRNAs[parent] in repr) { #dealing with GFF files being inconsistent...        
+        id = mRNAs[parent];
+        gene = id;   
       } else {
-        id = ""
+        id = "";
       }
     # if(source in repr && !(gene in printed)) {
       # print ">"transcript" pep chromosome:"version":"$1":"$4":"$5" gene:"gene"\n"repr[transcript];
