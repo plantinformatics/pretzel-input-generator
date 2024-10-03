@@ -87,6 +87,7 @@ Channel.from(params.references)
 
 process alignToGenome {
   label 'minimap2'
+  label 'paf'
   tag {"${refmeta.subMap(['species','version'])} <- ${seqsmeta.name}"}
 
   input:
