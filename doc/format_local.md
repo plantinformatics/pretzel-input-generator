@@ -310,3 +310,75 @@ Not used:
   --parent Sorghum_bicolor_NCBIv3 \
   | pigz -11cp2 > results/JSON/Sorghum_bicolor_NCBIv3_AX.json.gz
 ```
+
+
+### Sugarcane markers-contigs
+
+It appears that 48k markers are not specific enough - no surprise given probe lengths 
+Given the provided contig sequences and a file mapping mmarker IDs to contig IDs,
+can we use the contigs as "extended marker sequences?
+
+```sh
+head $MAP 
+probeset_id     affy_snp_id     cust_id contig  BestProbeset    dbSNP.RS.ID     Chromosome      Physical.Position       Strand  Flank   Allele.A        Allele.B        classification  source
+AX-117128103    Affx-115558822  S_126739127     step3_rep_c58742        1       ---     ---     ---     +       TTGTAGTAATAATATTCAAAAAGAAAAGCAAAAGT[C/T]AAGAGGAGAACAGAGGTGCAGCATTCATGGAACTT     T       C       secondchoice    get_variants_for_offtarget.exclude_ontarget.submission
+AX-117128112    Affx-115558813  S_5219223       step3_c1924     1       ---     ---     ---     +       GCTGCTTTTCTTCCTCACCGTACCTCTCAAATCGT[C/T]CATGTATTGTTTTTGTAAGGCCCCGTTTTGATCCT     T       C       preferred       class2.submission
+AX-117128115    Affx-115558810  S_13564454      step3_c4483     1       ---     ---     ---     +       GCATCCTATCTTGAATCTGTTAGTTGAAGTTCAGG[C/T]TTCACTGTCAGGCCACTTTCATAGTTGTCTTCAGC     T       C       preferred       class2+3.submission
+AX-117128120    Affx-115558805  3431655 NA      1       ---     ---     ---     +       CATGCTTACTGAGTCGTGCGAAGACATCACTGGAT[C/G]ACAAAAAAAA      C       G       Infinium        Infinium
+AX-117128122    Affx-115558803  S_167692905     step3_rep_c76251        1       ---     ---     ---     +       TATATGTTTTTGAGGGAGCCTCGCCAAACTTTTAG[A/G]GTCTCCTGCAAACAGTGGTTGATGAGAGTAGTCTT     A       G       preferred       class2.submission
+AX-117128126    Affx-115558799  S_76015262      step3_rep_c29698        1       ---     ---     ---     +       CTCCAGAATTTTGCTTCAGAAATAGCCTTCGCAAC[C/T]AGCATTCATGCCTGGCTAGCCCCTGCACTGTATGG     T       C       preferred       class1.submission
+AX-117128129    Affx-115558796  S_66101515      step3_rep_c25171        1       ---     ---     ---     +       GATGGACCACAATATAGGTAGTAAATGAAACGTGA[A/G]GGAGTGCAGGACTGCAGTGGATCCATC     A       G       secondchoice    get_variants_for_offtarget.exclude_ontarget.submission
+AX-117128131    Affx-115558794  S_93811100      step3_rep_c40457        1       ---     ---     ---     +       ACTCGCAGATTAGCGTAACCCCGAAGAGAAAGAGG[A/G]CAAGTCATATGCTCAGAGTATCCAAAAAGAGTAAT     A       G       preferred       class2.submission
+AX-117128137    Affx-115558788  S_24992350      step3_c974      1       ---     ---     ---     +       TGGTGAGAGGAAAGATTTGGCATTACAACTGGAGT[C/T]TAAGTCTGCACAAGTTGATGAGCTTCAGCTGATGG     T       C       preferred       class2+3.submission
+```
+
+We have one-to-many relatioships between marker IDs and contig IDs
+
+
+```sh
+
+ cut -f1 $MAP | sort | uniq -c | sort -nr | head
+      1 probeset_id
+      1 AX-94584309
+      1 AX-91428614
+      1 AX-91400098
+      1 AX-91385174
+      1 AX-91192353
+      1 AX-91047534
+      1 AX-90934140
+      1 AX-90637837
+      1 AX-90595263
+
+cut -f4 $MAP | sort | uniq -c | sort -nr | head
+    866 NA
+     20 step3_rep_c19975
+     18 step3_c21649
+     17 step3_rep_c17089
+     17 step3_rep_c12795
+     16 step3_rep_c75598
+     16 step3_rep_c38807
+     16 step3_rep_c25975
+     16 step3_rep_c21988
+     15 step3_rep_c40546
+```
+
+Additionally, we have no contig ID for 866 of 47802 markers.
+
+
+```sh
+awk  'BEGIN{FS=OFS="\t"}; NR==FNR && NR>1{IDS[$4]=$1};NR!=FNR{gsub(">","",$1); print $1,IDS[$1]}' $MAP <(paste - - < $CONTIGS )| head
+
+awk  'BEGIN{FS="\t"; OFS="\n"}; 
+  NR==FNR && NR>1 { 
+    gsub(">","",$1); 
+    ID2FA[$1]=$2
+  };
+  NR != FNR {
+    if($4 in ID2FA) {
+      print ">"$1,ID2FA[$4];
+    }
+  }
+' <(paste - - < $CONTIGS ) $MAP > local/markers/Axiom48k_contigs.fa 
+
+
+```
