@@ -382,3 +382,20 @@ awk  'BEGIN{FS="\t"; OFS="\n"};
 
 
 ```
+
+Currently unused addition to conf/sugarcane.config
+
+
+```
+      [
+        name: 'Axiom48k',
+        // fasta: 'local/markers/NGS_000105_contigs_new_ids.fa',  //local or remote, either gz or not
+        fasta: 'local/markers/Axiom48k_contigs.fa',  //local or remote, either gz or not
+        seqtype: 'genomic', //markers|transcripts|cds|genomic
+        target: [
+          [ species: 'Saccharum_officinarum_X_spontaneum', version: 'R570_V2' ]
+        ]
+      ]
+    ]
+```
+
